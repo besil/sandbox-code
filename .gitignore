@@ -3,6 +3,12 @@ __pycache__/
 *.py[codz]
 *$py.class
 
+# Docker / sandbox
+.env
+*.log
+
+# Byte-compiled / optimized / DLL files (continued)
+
 # C extensions
 *.so
 
