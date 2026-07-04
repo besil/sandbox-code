@@ -6,9 +6,9 @@ import shutil
 import subprocess
 import sys
 
-SANDOX_HOME = pathlib.Path.home() / ".config" / "sandbox-code"
-CONFIG_DIR = SANDOX_HOME / "opencode-config"
-DATA_DIR = SANDOX_HOME / "opencode-data"
+SANDBOX_HOME = pathlib.Path.home() / ".config" / "sandbox-code"
+CONFIG_DIR = SANDBOX_HOME / "opencode-config"
+DATA_DIR = SANDBOX_HOME / "opencode-data"
 SSH_DIR = pathlib.Path.home() / ".ssh"
 GH_DIR = pathlib.Path.home() / ".config" / "gh"
 
@@ -35,6 +35,11 @@ def main():
         help="Directory to mount as /workspace (default: current directory)",
     )
     parser.add_argument(
+        "--version",
+        action="store_true",
+        help="Print OpenCode version and exit",
+    )
+    parser.add_argument(
         "--reset",
         action="store_true",
         help="Delete all persistent data before starting",
@@ -57,7 +62,7 @@ def main():
     parser.add_argument(
         "--github",
         action="store_true",
-        help="Mount ~/.ssh and ~/.config/gh into the container (read-only)",
+        help="Mount ~/.ssh (read-only) and ~/.config/gh (writable)",
     )
     parser.add_argument(
         "command",
@@ -66,6 +71,15 @@ def main():
     )
 
     args = parser.parse_args()
+
+    if args.version:
+        subprocess.run(
+            ["docker", "run", "--rm", "--entrypoint", "opencode",
+             "sandbox-code:latest", "--version"],
+            env=os.environ,
+            check=True,
+        )
+        return
 
     command = args.command
     if command and command[0] == "--":
@@ -137,6 +151,9 @@ def main():
         pass
     else:
         docker_cmd.extend(["-c", "opencode ."])
+
+    subprocess.run(["docker", "rm", "-f", "sandbox-code"],
+                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
     try:
         subprocess.run(docker_cmd, env=os.environ, check=True)
