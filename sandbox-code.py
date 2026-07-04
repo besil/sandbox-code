@@ -113,7 +113,6 @@ def main():
         "-v", f"{workspace}:/workspace",
         "-v", f"{CONFIG_DIR}:/home/sandbox/.config/opencode",
         "-v", f"{DATA_DIR}:/home/sandbox/.local/share/opencode",
-        "-v", "/var/run/docker.sock:/var/run/docker.sock",
         "-e", "HOME=/home/sandbox",
         "-e", f'TERM={os.environ.get("TERM", "xterm-256color")}',
         "-w", "/workspace",

@@ -92,7 +92,6 @@ sandbox-code --reset
 | Python | 3.14 |
 | JDK (Temurin) | 26 |
 | Maven | 3.9 |
-| Docker CLI | ✓ |
 | GitHub CLI | ✓ |
 | git, curl, wget, vim, jq | ✓ |
 | OpenCode | latest |
@@ -109,7 +108,6 @@ services:
     tty: true
     volumes:
       - .:/workspace
-      - /var/run/docker.sock:/var/run/docker.sock
     environment:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
 ```
