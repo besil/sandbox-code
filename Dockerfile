@@ -23,11 +23,11 @@ RUN wget -qO - https://packages.adoptium.net/artifactory/api/gpg/key/public | gp
 
 RUN npm install -g opencode-ai
 
-RUN useradd -m -s /bin/bash sandbox \
-    && mkdir -p /home/sandbox/.config/opencode /home/sandbox/.local/share/opencode \
-    && chown -R sandbox:sandbox /home/sandbox/.config /home/sandbox/.local
+RUN mkdir -p /home/ubuntu/.config/opencode /home/ubuntu/.local/share/opencode && \
+    chown -R ubuntu:ubuntu /home/ubuntu/.config /home/ubuntu/.local && \
+    echo "PS1='\[\033[01;35m\]\u@\h\[\033[00m\]:\[\033[01;33m\]\w\[\033[00m\]\\\$ '" >> /home/ubuntu/.bashrc
 
-USER sandbox
+USER ubuntu
 WORKDIR /workspace
 
 ENTRYPOINT ["/bin/bash"]

@@ -111,9 +111,9 @@ def main():
         "--hostname", "sandbox-code",
         "--name", "sandbox-code",
         "-v", f"{workspace}:/workspace",
-        "-v", f"{CONFIG_DIR}:/home/sandbox/.config/opencode",
-        "-v", f"{DATA_DIR}:/home/sandbox/.local/share/opencode",
-        "-e", "HOME=/home/sandbox",
+        "-v", f"{CONFIG_DIR}:/home/ubuntu/.config/opencode",
+        "-v", f"{DATA_DIR}:/home/ubuntu/.local/share/opencode",
+        "-e", "HOME=/home/ubuntu",
         "-e", f'TERM={os.environ.get("TERM", "xterm-256color")}',
         "-w", "/workspace",
     ]
@@ -130,13 +130,13 @@ def main():
 
     if args.github:
         if GH_DIR.is_dir():
-            add_mount(GH_DIR, "/home/sandbox/.config/gh", readonly=False)
+            add_mount(GH_DIR, "/home/ubuntu/.config/gh", readonly=False)
         if SSH_DIR.is_dir():
-            add_mount(SSH_DIR, "/home/sandbox/.ssh")
+            add_mount(SSH_DIR, "/home/ubuntu/.ssh")
 
     if args.ssh and not args.github:
         if SSH_DIR.is_dir():
-            add_mount(SSH_DIR, "/home/sandbox/.ssh")
+            add_mount(SSH_DIR, "/home/ubuntu/.ssh")
 
     for var in API_KEY_VARS:
         if var in os.environ:
