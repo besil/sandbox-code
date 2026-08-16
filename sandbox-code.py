@@ -128,6 +128,8 @@ def main():
         "-v", f"{DATA_DIR}:/home/ubuntu/.local/share/opencode",
         "-e", "HOME=/home/ubuntu",
         "-e", f'TERM={os.environ.get("TERM", "xterm-256color")}',
+        "-e", f'LANG={os.environ.get("LANG", "C.UTF-8")}',
+        "-e", f'LC_ALL={os.environ.get("LC_ALL", "C.UTF-8")}',
         "-w", "/workspace",
     ]
 
