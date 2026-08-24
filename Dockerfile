@@ -13,6 +13,8 @@ RUN apt-get update && apt-get install -y \
     chromium-browser \
     xclip \
     xsel \
+    curl \
+    rlwrap \
     && rm -rf /var/lib/apt/lists/*
 
 RUN wget -qO - https://packages.adoptium.net/artifactory/api/gpg/key/public | gpg --dearmor -o /usr/share/keyrings/adoptium-archive-keyring.gpg \
@@ -25,6 +27,12 @@ RUN wget -qO - https://packages.adoptium.net/artifactory/api/gpg/key/public | gp
     temurin-26-jdk \
     gh \
     && rm -rf /var/lib/apt/lists/*
+
+# Clojure installation
+RUN curl -L -O https://github.com/clojure/brew-install/releases/latest/download/linux-install.sh
+RUN chmod +x linux-install.sh
+RUN ./linux-install.sh
+ENV MANPATH_MAP="/opt/infrastructure/clojure/bin /opt/infrastructure/clojure/man"
 
 RUN npm install -g opencode-ai
 
