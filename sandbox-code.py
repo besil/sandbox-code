@@ -42,7 +42,7 @@ def main():
     parser.add_argument(
         "--reset",
         action="store_true",
-        help="Delete all persistent data before starting",
+        help="Delete all persistent data before starting (API Keys, ...)",
     )
     parser.add_argument(
         "--no-cache",
