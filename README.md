@@ -60,8 +60,16 @@ sandbox-code [options] [-- command...]
 |---|---|
 | `-w`, `--workspace PATH` | Directory to mount as `/workspace` (default: current directory) |
 | `--bash` | Start an interactive bash shell instead of OpenCode |
+| `--version` | Print OpenCode version and exit |
 | `--ssh` | Mount `~/.ssh` into the container (read-only) |
 | `--github` | Mount `~/.ssh` (read-only) and `~/.config/gh` (writable) |
+| `--x11` | Mount X11 socket for clipboard support (enables copy/paste) |
+| `--no-network` | Disable all networking (`--network none`) |
+| `--network NAME` | Use a specific Docker network (default: bridge) |
+| `--blacklist` | Isolate from local/Tailscale subnets, allow internet (`blacklist-networks.conf`) |
+| `--whitelist` | Allow only listed CIDRs, block everything else (`whitelist-networks.conf`) |
+| `--clean-rules` | Remove firewall rules created by `--blacklist` / `--whitelist` |
+| `--no-git` | Hide `.git` directory (tmpfs over `/workspace/.git`) |
 | `--reset` | Delete all persistent data before starting |
 | `--no-cache` | Force a full Docker image rebuild without layer cache |
 
@@ -81,6 +89,33 @@ To wipe everything and start fresh:
 
 ```bash
 sandbox-code --reset
+```
+
+## Network isolation
+
+Use `--blacklist` or `--whitelist` to restrict outbound traffic from the container.
+Both require `sudo` to apply iptables/nftables rules on the host.
+
+| Flag | Config file | Behaviour |
+|---|---|---|
+| `--blacklist` | `blacklist-networks.conf` | Block listed CIDRs, allow everything else |
+| `--whitelist` | `whitelist-networks.conf` | Allow only listed CIDRs, block everything else |
+
+Config file format (first two lines = Docker network name + subnet, rest = CIDRs):
+
+```
+sandbox-code-blacklist
+172.30.0.0/16
+# comments start with #
+10.0.0.0/8
+192.168.0.0/16
+100.64.0.0/10
+```
+
+Clean up firewall rules:
+
+```bash
+sandbox-code --clean-rules
 ```
 
 ## Image contents
