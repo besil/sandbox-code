@@ -4,6 +4,24 @@
 
 Dockerised OpenCode sandbox. No build/test/lint pipeline — this is an infrastructure project.
 
+## Repo layout
+
+```
+sandbox-code.py / sandbox-code / Dockerfile   # the tool itself
+templates/                                     # files users copy into their own workspace
+  └── .sandbox-init.sh
+config/                                        # the tool's own runtime configuration
+  ├── opencode.jsonc
+  ├── tui.json
+  └── firewall/
+      ├── blacklist-networks.conf
+      └── whitelist-networks.conf
+```
+
+`templates/` holds starting points users copy (seeded/copied into a workspace);
+`config/` holds the tool's own defaults (seeded into the persistent OpenCode config
+volume and copied into the image). Keep the two separate when adding files.
+
 ## Architecture
 
 ```
@@ -35,7 +53,7 @@ sandbox-code (shell wrapper) → sandbox-code.py (Python) → bash .sandbox-run.
 - Multiple apt repos merged into a single RUN step to keep layers low.
 - No Docker CLI, no socket mount — the container has no host Docker access.
 - Persistent dirs (`~/.config/opencode`, `~/.local/share/opencode`) are pre-created and chowned to `ubuntu` so bind mounts inherit correct ownership.
-- **No language runtimes or optional tooling are baked in** beyond the essentials (git, curl, wget, vim, jq, build-essential, ca-certificates, `python3`, Node.js — the last required by `opencode-ai`). Go, Java/Maven, Clojure, Chromium, and the former utilities (`poppler-utils`, `gping bind9-dnsutils iproute2 iputils-ping`, `xclip xsel`, `rlwrap`) are installed per project via an **opt-in** `.sandbox-init.sh` placed in the workspace root (see the `project build` command's `--init-script` / `--force-init` / `--no-init` flags). The repo ships a `.sandbox-init.sh` **template** for this; projects without one get nothing extra. Chromium is **not** shipped: Ubuntu's `chromium-browser` apt package is a snap stub that cannot run inside the container — projects needing a headless browser install their own copy (e.g. `npx playwright install --with-deps chromium`).
+- **No language runtimes or optional tooling are baked in** beyond the essentials (git, curl, wget, vim, jq, build-essential, ca-certificates, `python3`, Node.js — the last required by `opencode-ai`). Go, Java/Maven, Clojure, Chromium, and the former utilities (`poppler-utils`, `gping bind9-dnsutils iproute2 iputils-ping`, `xclip xsel`, `rlwrap`) are installed per project via an **opt-in** `.sandbox-init.sh` placed in the workspace root (see the `project build` command's `--init-script` / `--force-init` / `--no-init` flags). The repo ships a `.sandbox-init.sh` **template** under `templates/` for this; projects without one get nothing extra. Chromium is **not** shipped: Ubuntu's `chromium-browser` apt package is a snap stub that cannot run inside the container — projects needing a headless browser install their own copy (e.g. `npx playwright install --with-deps chromium`).
 
 ## Volumes & mounts
 

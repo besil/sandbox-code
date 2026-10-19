@@ -16,6 +16,11 @@ GITMIRROR_DIR = SANDBOX_HOME / "gitmirror"
 SSH_DIR = pathlib.Path.home() / ".ssh"
 GH_DIR = pathlib.Path.home() / ".config" / "gh"
 
+# Repo asset locations (paths relative to the repo root, i.e. script_dir).
+TEMPLATES_SUBDIR = "templates"
+CONFIG_SUBDIR = "config"
+FIREWALL_SUBDIR = os.path.join("config", "firewall")
+
 # Generated project files (always written to the workspace root).
 RUN_SCRIPT_NAME = ".sandbox-run.sh"
 PRE_SCRIPT_NAME = ".sandbox-pre.sh"
@@ -304,7 +309,7 @@ def cmd_project_build(script_dir, args):
 def cmd_project_init(script_dir, args):
     workspace = os.path.abspath(args.workspace)
 
-    template = os.path.join(script_dir, INIT_SCRIPT_NAME)
+    template = os.path.join(script_dir, TEMPLATES_SUBDIR, INIT_SCRIPT_NAME)
     dst = os.path.join(workspace, INIT_SCRIPT_NAME)
     if os.path.exists(dst):
         print(f"[INFO] {INIT_SCRIPT_NAME} already exists, keeping it")
@@ -313,7 +318,8 @@ def cmd_project_init(script_dir, args):
         os.chmod(dst, 0o755)
         print(f"[INFO] Created {INIT_SCRIPT_NAME} from template")
     else:
-        print(f"[WARNING] {INIT_SCRIPT_NAME} template not found in {script_dir}",
+        print(f"[WARNING] {INIT_SCRIPT_NAME} template not found in "
+              f"{os.path.join(script_dir, TEMPLATES_SUBDIR)}",
               file=sys.stderr)
 
     _build_image(script_dir, no_cache=False)
@@ -460,7 +466,7 @@ def cmd_network_init(script_dir, args, mode):
         print(f"[INFO] {name} already exists, keeping it")
         return
 
-    template = os.path.join(script_dir, name)
+    template = os.path.join(script_dir, FIREWALL_SUBDIR, name)
     if not os.path.isfile(template):
         print(f"[ERROR] Template not found: {template}", file=sys.stderr)
         sys.exit(1)
@@ -565,7 +571,7 @@ def _write_project_files(script_dir, workspace, *, ssh=False, github=False,
     for name in ("opencode.jsonc", "tui.json"):
         dst = CONFIG_DIR / name
         if not dst.exists():
-            src = pathlib.Path(script_dir) / name
+            src = pathlib.Path(script_dir) / CONFIG_SUBDIR / name
             if src.exists():
                 shutil.copy2(src, dst)
 
@@ -982,7 +988,7 @@ def _find_conf(workspace, script_dir, mode):
     ws_conf = os.path.join(workspace, f"{mode}-networks.conf")
     if os.path.isfile(ws_conf):
         return ws_conf
-    return os.path.join(script_dir, f"{mode}-networks.conf")
+    return os.path.join(script_dir, FIREWALL_SUBDIR, f"{mode}-networks.conf")
 
 
 def _ensure_network(conf_path):

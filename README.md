@@ -222,7 +222,7 @@ Through tmux, OSC 52 additionally needs `set -g set-clipboard on` (and `set -g a
 
 The container can run a project-specific initialisation script before OpenCode (or any other main command) starts. This is useful for installing project dependencies, setting environment variables, or any other setup that should happen once per project.
 
-The base image ships **without** language runtimes (Go, Java, Maven, Clojure). To give a project them, copy the [`.sandbox-init.sh` template](/.sandbox-init.sh) from this repo into the project root and trim it to what the project needs. Projects **without** an init script get **nothing extra installed** — the lean base image is the default.
+The base image ships **without** language runtimes (Go, Java, Maven, Clojure). To give a project them, copy the [`.sandbox-init.sh` template](/templates/.sandbox-init.sh) from this repo into the project root and trim it to what the project needs. Projects **without** an init script get **nothing extra installed** — the lean base image is the default.
 
 ### Behaviour
 
@@ -355,7 +355,7 @@ install them per project via the [init script](#init-script).
 
 There is **no** built-in default installer — a project gets exactly what its own
 `.sandbox-init.sh` installs (cached once per project by content hash). Use the
-[`.sandbox-init.sh` template](/.sandbox-init.sh) from this repo as a starting point,
+[`.sandbox-init.sh` template](/templates/.sandbox-init.sh) from this repo as a starting point,
 or these snippets inside a custom per-project init script:
 
 | Package | Init script snippet |
