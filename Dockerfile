@@ -9,33 +9,16 @@ RUN apt-get update && apt-get install -y \
     build-essential \
     ca-certificates gnupg lsb-release \
     python3 python3-pip python3-venv \
-    maven \
-    golang \
-    poppler-utils \
-    chromium-browser \
-    gping bind9-dnsutils iproute2 iputils-ping \
-    xclip \
-    xsel \
-    curl \
-    rlwrap \
+    sudo \
     && rm -rf /var/lib/apt/lists/*
 
-RUN wget -qO - https://packages.adoptium.net/artifactory/api/gpg/key/public | gpg --dearmor -o /usr/share/keyrings/adoptium-archive-keyring.gpg \
-    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/adoptium-archive-keyring.gpg] https://packages.adoptium.net/artifactory/deb $(lsb_release -cs) main" > /etc/apt/sources.list.d/adoptium.list \
-    && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
+RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
     && curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | gpg --dearmor -o /usr/share/keyrings/githubcli-archive-keyring.gpg \
     && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" > /etc/apt/sources.list.d/github-cli.list \
     && apt-get update && apt-get install -y \
     nodejs \
-    temurin-26-jdk \
     gh \
     && rm -rf /var/lib/apt/lists/*
-
-# Clojure installation
-RUN curl -L -O https://github.com/clojure/brew-install/releases/latest/download/linux-install.sh
-RUN chmod +x linux-install.sh
-RUN ./linux-install.sh
-ENV MANPATH_MAP="/opt/infrastructure/clojure/bin /opt/infrastructure/clojure/man"
 
 RUN npm install -g opencode-ai
 
@@ -43,7 +26,9 @@ COPY opencode.jsonc tui.json /home/ubuntu/.config/opencode/
 
 RUN mkdir -p /home/ubuntu/.config/opencode /home/ubuntu/.local/share/opencode && \
     chown -R ubuntu:ubuntu /home/ubuntu/.config /home/ubuntu/.local && \
-    echo "PS1='\[\033[01;35m\]\u@\h\[\033[00m\]:\[\033[01;33m\]\w\[\033[00m\]\\\$ '" >> /home/ubuntu/.bashrc
+    echo "PS1='\[\033[01;35m\]\u@\h\[\033[00m\]:\[\033[01;33m\]\w\[\033[00m\]\\\$ '" >> /home/ubuntu/.bashrc && \
+    echo "ubuntu ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/ubuntu && \
+    chmod 0440 /etc/sudoers.d/ubuntu
 
 USER ubuntu
 WORKDIR /workspace

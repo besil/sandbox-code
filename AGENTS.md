@@ -26,7 +26,7 @@ sandbox-code (shell wrapper) → sandbox-code.py (Python) → docker run sandbox
 - Multiple apt repos merged into a single RUN step to keep layers low.
 - No Docker CLI, no socket mount — the container has no host Docker access.
 - Persistent dirs (`~/.config/opencode`, `~/.local/share/opencode`) are pre-created and chowned to `ubuntu` so bind mounts inherit correct ownership.
-- **Headless Chromium** (`chromium-browser`) is installed. Use `chromium-browser --headless` or `chromium-browser --headless=new` for headless mode. For Playwright/Puppeteer, set `PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser`.
+- **No language runtimes or optional tooling are baked in** beyond the essentials (git, curl, wget, vim, jq, build-essential, ca-certificates, `python3`, Node.js — the last required by `opencode-ai`). Go, Java/Maven, Clojure, Chromium, and the former utilities (`poppler-utils`, `gping bind9-dnsutils iproute2 iputils-ping`, `xclip xsel`, `rlwrap`) are installed per project via an **opt-in** `.sandbox-init.sh` placed in the workspace root (see `sandbox-code.py`'s `--init-script` / `--force-init` / `--no-init` flags). The repo ships a `.sandbox-init.sh` **template** for this; projects without one get nothing extra. Chromium is **not** shipped: Ubuntu's `chromium-browser` apt package is a snap stub that cannot run inside the container — projects needing a headless browser install their own copy (e.g. `npx playwright install --with-deps chromium`).
 
 ## Volumes & mounts
 
@@ -47,6 +47,7 @@ sandbox-code (shell wrapper) → sandbox-code.py (Python) → docker run sandbox
 
 ## Gotchas
 
-- `docker rm -f sandbox-code` runs silently before every launch to prevent stale container name conflicts.
+- The container **persists** between launches (created without `--rm`): its name is deterministic — `sandbox-code-<workspace-folder-name>`. Later launches `docker start -ai` the same container, keeping init-installed packages. Run `sandbox-code --clean-project` (or `docker rm -f sandbox-code-<folder>`) to force a fresh container.
+- On resume, the container re-runs its **original** baked command — flags passed on later launches (e.g. `--ssh`, `--bash`) only apply at first creation.
 - `-it` only added when `sys.stdin.isatty()` — batch runs use `-i` only.
-- Container hostname == container name == `sandbox-code`.
+- Container hostname is `sandbox-code`; the container *name* is `sandbox-code-<folder-name>`.

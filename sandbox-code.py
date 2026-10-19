@@ -3,6 +3,7 @@ import argparse
 import hashlib
 import os
 import pathlib
+import re
 import shutil
 import subprocess
 import sys
@@ -57,6 +58,21 @@ def main():
         help="Start with an interactive bash shell instead of opencode",
     )
     parser.add_argument(
+        "--no-init",
+        action="store_true",
+        help="Skip the project init script entirely",
+    )
+    parser.add_argument(
+        "--init-script",
+        default=".sandbox-init.sh",
+        help="Init script to run inside the container (path relative to workspace)",
+    )
+    parser.add_argument(
+        "--force-init",
+        action="store_true",
+        help="Delete the per-project marker to force re-running init",
+    )
+    parser.add_argument(
         "--ssh",
         action="store_true",
         help="Mount ~/.ssh into the container (read-only). SECURITY: exposes your "
@@ -100,6 +116,12 @@ def main():
         help="Remove firewall rules created by --blacklist / --whitelist",
     )
     parser.add_argument(
+        "--clean-project",
+        action="store_true",
+        help="Remove the persisted container for this workspace, so the next "
+             "launch starts completely fresh",
+    )
+    parser.add_argument(
         "--no-git",
         action="store_true",
         help="Hide the real .git, exposing a disposable per-project repo instead",
@@ -127,6 +149,20 @@ def main():
 
     if args.clean_rules:
         _clean_all_rules(script_dir)
+        return
+
+    workspace = os.path.abspath(args.workspace)
+
+    if args.clean_project:
+        workspace_key = hashlib.sha256(
+            (workspace + ":" + args.init_script).encode()).hexdigest()[:16]
+        ctr_name = _container_name(workspace)
+        subprocess.run(["docker", "rm", "-f", ctr_name],
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        print(f"[INFO] Removed container '{ctr_name}' (if it existed)")
+
+        marker_file = DATA_DIR / ".init-done" / workspace_key
+        marker_file.unlink(missing_ok=True)
         return
 
     if args.version:
@@ -160,6 +196,57 @@ def main():
             if src.exists():
                 shutil.copy2(src, dst)
 
+    # Init script support
+    workspace_key = hashlib.sha256((workspace + ":" + args.init_script).encode()).hexdigest()[:16]
+    marker_dir = DATA_DIR / ".init-done"
+    marker_file = marker_dir / workspace_key
+
+    if args.force_init:
+        marker_file.unlink(missing_ok=True)
+
+    init_prefix = ""
+    if not args.no_init and args.init_script:
+        script_path = f"/workspace/{args.init_script}"
+        marker_path = f"/home/ubuntu/.local/share/opencode/.init-done/{workspace_key}"
+        init_prefix = (
+            f'mkdir -p "$(dirname {marker_path})" && '
+            f'SCRIPT="{script_path}" && '
+            f'MARKER="{marker_path}" && '
+            f'[ -f "$SCRIPT" ] && '
+            f'if [ ! -f "$MARKER" ] || '
+            f'[ "$(sha256sum "$SCRIPT" | awk \'{{print $1}}\')" != "$(cat "$MARKER")" ]; then '
+            f'sudo bash "$SCRIPT" && '
+            f'sha256sum "$SCRIPT" | awk \'{{print $1}}\' > "$MARKER"; '
+            f'fi; '
+        )
+
+    # --- Container reuse (per-project, kept alive across launches) ----------
+    # The container is created WITHOUT --rm, so when the session ends it
+    # remains around (stopped) with every package the init script installed.
+    # Its name is deterministic: sandbox-code-<workspace folder name>.
+    ctr_name = _container_name(workspace)
+
+    status = _container_status(ctr_name)
+    if status is not None:
+        if status == "running":
+            print(f"[INFO] Container '{ctr_name}' is already running, attaching")
+            try:
+                subprocess.run(["docker", "attach", ctr_name], env=os.environ, check=True)
+            except subprocess.CalledProcessError as e:
+                sys.exit(e.returncode)
+            except KeyboardInterrupt:
+                sys.exit(0)
+            return
+        print(f"[INFO] Reusing existing container '{ctr_name}' (init already done)")
+        try:
+            subprocess.run(["docker", "start", "-ai", ctr_name], env=os.environ, check=True)
+        except subprocess.CalledProcessError as e:
+            sys.exit(e.returncode)
+        except KeyboardInterrupt:
+            sys.exit(0)
+        return
+
+    # Fresh container: make sure the image is up to date first.
     build_cmd = ["docker", "build", "-t", "sandbox-code:latest"]
     if args.no_cache:
         build_cmd.append("--no-cache")
@@ -167,15 +254,18 @@ def main():
 
     subprocess.run(build_cmd, env=os.environ, check=True)
 
-    workspace = os.path.abspath(args.workspace)
+    # A fresh container has an empty install state — any leftover init marker
+    # (the marker survives in persistent opencode-data) must not suppress the
+    # init script, or the new container would never get its packages.
+    marker_file.unlink(missing_ok=True)
 
     run_mode = ["-it"] if sys.stdin.isatty() else ["-i"]
 
     docker_cmd = [
-        "docker", "run", "--rm",
+        "docker", "run",
         *run_mode,
         "--hostname", "sandbox-code",
-        "--name", "sandbox-code",
+        "--name", ctr_name,
         "-v", f"{workspace}:/workspace",
         "-v", f"{CONFIG_DIR}:/home/ubuntu/.config/opencode",
         "-v", f"{DATA_DIR}:/home/ubuntu/.local/share/opencode",
@@ -273,14 +363,12 @@ def main():
     docker_cmd.append("sandbox-code:latest")
 
     if command:
-        docker_cmd.extend(["-c", " ".join(command)])
+        docker_cmd.extend(["-c", init_prefix + " ".join(command)])
     elif args.bash:
-        pass
+        if init_prefix:
+            docker_cmd.extend(["-c", init_prefix + "exec bash"])
     else:
-        docker_cmd.extend(["-c", "opencode ."])
-
-    subprocess.run(["docker", "rm", "-f", "sandbox-code"],
-                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        docker_cmd.extend(["-c", init_prefix + "opencode ."])
 
     try:
         subprocess.run(docker_cmd, env=os.environ, check=True)
@@ -293,6 +381,31 @@ def main():
 # ---------------------------------------------------------------------------
 # helpers
 # ---------------------------------------------------------------------------
+
+def _container_name(workspace):
+    """Deterministic per-workspace container name: sandbox-code-<folder name>.
+
+    Docker container names allow [a-zA-Z0-9_.-] and must not start with a
+    separator, so the folder name is sanitised; falls back to a short hash for
+    empty/odd names (e.g. bare '/').
+    """
+    folder = os.path.basename(os.path.normpath(workspace)).lower()
+    folder = re.sub(r"[^a-z0-9_.-]+", "-", folder).strip("._-")
+    if not folder:
+        folder = hashlib.sha256(workspace.encode()).hexdigest()[:10]
+    return f"sandbox-code-{folder}"
+
+
+def _container_status(name):
+    """Return the container state ('running', 'exited', ...) or None if absent."""
+    result = subprocess.run(
+        ["docker", "inspect", "-f", "{{.State.Status}}", name],
+        stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True,
+    )
+    if result.returncode != 0:
+        return None
+    return result.stdout.strip() or None
+
 
 def _ensure_project_git(workspace):
     """Return a disposable, per-workspace git repo to mount as .git.
