@@ -1,3 +1,9 @@
 __pycache__/
 *.py[codz]
 .env
+
+# Generated per-workspace by sandbox-code (see sandbox-code.py)
+.sandbox-run.sh
+.sandbox-pre.sh
+.sandbox-post.sh
+.sandbox-cmd
