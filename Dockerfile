@@ -10,7 +10,10 @@ RUN apt-get update && apt-get install -y \
     ca-certificates gnupg lsb-release \
     python3 python3-pip python3-venv \
     maven \
+    golang \
+    poppler-utils \
     chromium-browser \
+    gping bind9-dnsutils iproute2 iputils-ping \
     xclip \
     xsel \
     curl \
