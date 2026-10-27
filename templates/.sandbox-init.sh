@@ -63,16 +63,6 @@ if ! command -v gping >/dev/null 2>&1; then
     apt-get install -y --no-install-recommends gping bind9-dnsutils iproute2 iputils-ping
 fi
 
-# Clipboard tools
-if ! command -v xclip >/dev/null 2>&1; then
-    apt-get install -y --no-install-recommends xclip xsel
-fi
-
-# Readline wrapper (line-editing for interactive REPLs)
-if ! command -v rlwrap >/dev/null 2>&1; then
-    apt-get install -y --no-install-recommends rlwrap
-fi
-
 apt-get clean
 rm -rf /var/lib/apt/lists/*
 
