@@ -24,6 +24,7 @@ RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
 RUN npm install -g opencode-ai
 
 COPY config/opencode.jsonc config/tui.json /home/ubuntu/.config/opencode/
+COPY config/plugins /home/ubuntu/.config/opencode/plugins
 
 RUN mkdir -p /home/ubuntu/.config/opencode /home/ubuntu/.local/share/opencode && \
     chown -R ubuntu:ubuntu /home/ubuntu/.config /home/ubuntu/.local && \

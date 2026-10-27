@@ -6,6 +6,12 @@
     },
     "build": {
       "model": "openrouter/deepseek/deepseek-v4.1-flash"
+    },
+    "openspec-plan": {
+      "model": "openrouter/deepseek/deepseek-v4-pro"
     }
-  }
+  },
+  "plugin": [
+    "opencode-plugin-openspec"
+  ]
 }

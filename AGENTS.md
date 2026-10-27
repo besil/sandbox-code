@@ -13,6 +13,8 @@ templates/                                     # files users copy into their own
 config/                                        # the tool's own runtime configuration
   ├── opencode.jsonc
   ├── tui.json
+  ├── plugins/
+  │   └── openspec-model.js
   └── firewall/
       ├── blacklist-networks.conf
       └── whitelist-networks.conf
@@ -64,6 +66,7 @@ sandbox-code (shell wrapper) → sandbox-code.py (Python) → bash .sandbox-run.
 - `--github`: mounts `~/.ssh` (ro) + `~/.config/gh` (rw). **Security caveat: exposes SSH keys and the GitHub token (rw) to the agent.** Not used by the current maintainer; kept from the original author.
 - `--x11`: mounts the X11 socket + `XAUTHORITY` (ro). **Security caveat: gives the container access to the host display (keylogging, screen capture, input injection), not just the clipboard.** Effectively unnecessary for copy/paste: OpenCode emits OSC 52 on every copy, and Shift+selection works in VTE terminals (e.g. lxterminal). Kept for users who rely on `xclip`/`xsel` inside the container.
 - `--no-git`: `_ensure_project_git()` creates a disposable per-workspace git repo under `~/.config/sandbox-code/gitmirror/<sha256(workspace)[:16]/.git` (init + one empty commit) and mounts it over `/workspace/.git`, hiding the real repo while giving OpenCode a stable `project_id`. Falls back to a tmpfs if `git` is unavailable on the host.
+- `--openspec`: bakes an `_openspec_prefix()` snippet into the container command that (once per project, marker-guarded) runs `sudo npm install -g @fission-ai/openspec@latest` and `openspec init --tools opencode` in `/workspace`. `config/opencode.jsonc` enables the `opencode-plugin-openspec` plugin and maps its `openspec-plan` primary agent to `openrouter/deepseek/deepseek-v4-pro`. Needs network, so it conflicts with `--no-network`.
 - Mounts are written into `.sandbox-run.sh` as literal `docker run` arguments; there is no host-side dedup helper anymore.
 
 ## Env vars

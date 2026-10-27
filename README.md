@@ -118,6 +118,7 @@ so the first real `run` starts instantly. To change features, run it again.
 | `--github` | Mount `~/.ssh` (read-only) and `~/.config/gh` (writable). **Security: exposes your SSH keys and GitHub token (rw) to the agent** |
 | `--x11` | Mount X11 socket for clipboard support. **Security: grants the container access to the host display — not just the clipboard.** Usually unnecessary — see [Clipboard](#clipboard) |
 | `--no-git` | Hide the real `.git`, exposing a disposable per-project repo |
+| `--openspec` | Install the [OpenSpec](https://openspec.dev) CLI and run `openspec init --tools opencode` once on first container start (also enables the `openspec-plan` agent — see [OpenSpec](#openspec)) |
 | `--no-init` | Skip the project init script entirely |
 | `--init-script FILENAME` | Init script to run at container start, relative to workspace (default: `.sandbox-init.sh`) |
 | `--force-init` | Drop the per-project marker so the init script runs again on next launch |
@@ -277,6 +278,31 @@ sandbox-code project build --force-init
 # Skip init entirely
 sandbox-code project build --no-init
 ```
+
+## OpenSpec
+
+Pass `--openspec` to `project build` to set up [OpenSpec](https://openspec.dev) — spec-driven development — inside the sandbox:
+
+```bash
+sandbox-code project build --openspec
+```
+
+On the first container start (which happens during the build), `sandbox-code`:
+
+1. Installs the OpenSpec CLI: `npm install -g @fission-ai/openspec@latest`.
+2. Runs `openspec init --tools opencode` in `/workspace`, creating the `openspec/` folder and the `.opencode/` skills/commands (`/opsx-apply`, …).
+
+Both steps are guarded by a marker in the persistent `opencode-data` volume, so they run **once per project**. They re-run when the container is recreated or with `--force-init`, and `project clean` removes the marker.
+
+Because the install and `openspec init` need network access, `--openspec` is incompatible with `--no-network`.
+
+### The `openspec-plan` agent
+
+`--openspec` also relies on the [`opencode-plugin-openspec`](https://github.com/Octane0411/opencode-plugin-openspec) plugin, which adds an **`openspec-plan`** primary agent (the "OpenSpec Architect"): it may write OpenSpec documents (`openspec/**`, `specs/**`, `project.md`, `AGENTS.md`) while keeping the rest of the codebase read-only, so planning never leaks into implementation.
+
+The plugin and the agent's model are declared in the persistent OpenCode config (`config/opencode.jsonc` → `~/.config/sandbox-code/opencode-config/`). The `openspec-plan` agent is mapped to `openrouter/deepseek/deepseek-v4-pro` — a high-reasoning model, which OpenSpec recommends for planning. Because the plugin replaces the agent definition (dropping any `model`), a small local plugin (`config/plugins/openspec-model.js`) re-applies the model after it loads.
+
+> The OpenCode config is seeded **once**. If you already have a `~/.config/sandbox-code/opencode-config/opencode.jsonc`, the new `plugin`/`openspec-plan` entries are not added automatically — run `sandbox-code reset` or add them manually.
 
 ## Persistent data
 

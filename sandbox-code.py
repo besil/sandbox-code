@@ -177,6 +177,11 @@ def _add_build_args(parser):
         help="Hide the real .git, exposing a disposable per-project repo instead",
     )
     parser.add_argument(
+        "--openspec", action="store_true",
+        help="Install the OpenSpec CLI and initialize its OpenCode integration "
+             "(runs once on first container start)",
+    )
+    parser.add_argument(
         "--no-init", action="store_true",
         help="Skip the project init script entirely",
     )
@@ -291,6 +296,7 @@ def cmd_project_build(script_dir, args):
         github=args.github,
         x11=args.x11,
         no_git=args.no_git,
+        openspec=args.openspec,
         no_init=args.no_init,
         init_script=args.init_script,
         force_init=args.force_init,
@@ -368,6 +374,7 @@ def cmd_project_features(args):
 
     line("X11", "enabled" if x11 else "disabled")
     line("No-git", "enabled" if no_git else "disabled")
+    line("OpenSpec", "enabled" if "openspec" in features else "disabled")
 
     if init_script != "none":
         line("Init script", "enabled", init_script)
@@ -410,6 +417,10 @@ def cmd_project_clean(script_dir, args):
         (workspace + ":" + init_script).encode()).hexdigest()[:16]
     marker_file = DATA_DIR / ".init-done" / workspace_key
     marker_file.unlink(missing_ok=True)
+
+    openspec_key = hashlib.sha256(
+        (workspace + ":openspec").encode()).hexdigest()[:16]
+    (DATA_DIR / ".init-done" / openspec_key).unlink(missing_ok=True)
 
     for name in (RUN_SCRIPT_NAME, PRE_SCRIPT_NAME, POST_SCRIPT_NAME, CMD_FILE_NAME):
         path = os.path.join(workspace, name)
@@ -557,8 +568,24 @@ def _init_prefix(workspace, init_script):
     )
 
 
+def _openspec_prefix(workspace):
+    """Shell snippet (run inside the container) that sets up OpenSpec once."""
+    workspace_key = hashlib.sha256(
+        (workspace + ":openspec").encode()).hexdigest()[:16]
+    marker_path = f"/home/ubuntu/.local/share/opencode/.init-done/{workspace_key}"
+    return (
+        f'mkdir -p "$(dirname {marker_path})" && '
+        f'MARKER="{marker_path}" && '
+        f'if [ ! -f "$MARKER" ]; then '
+        f'sudo npm install -g @fission-ai/openspec@latest && '
+        f'openspec init --tools opencode && '
+        f'touch "$MARKER"; '
+        f'fi; '
+    )
+
+
 def _write_project_files(script_dir, workspace, *, ssh=False, github=False,
-                         x11=False, no_git=False, no_init=False,
+                         x11=False, no_git=False, openspec=False, no_init=False,
                          init_script=INIT_SCRIPT_NAME, force_init=False,
                          network_arg=None, filter_mode=None, command=None):
     """Generate .sandbox-run.sh (and host pre/post hooks) for this workspace."""
@@ -575,11 +602,26 @@ def _write_project_files(script_dir, workspace, *, ssh=False, github=False,
             if src.exists():
                 shutil.copy2(src, dst)
 
+    # Seed the local plugin that pins the openspec-plan agent model (once).
+    plugins_src = pathlib.Path(script_dir) / CONFIG_SUBDIR / "plugins"
+    if plugins_src.is_dir():
+        plugins_dst = CONFIG_DIR / "plugins"
+        plugins_dst.mkdir(parents=True, exist_ok=True)
+        for src in sorted(plugins_src.glob("*.js")):
+            dst = plugins_dst / src.name
+            if not dst.exists():
+                shutil.copy2(src, dst)
+
     workspace_key = hashlib.sha256(
         (workspace + ":" + init_script).encode()).hexdigest()[:16]
     marker_host = DATA_DIR / ".init-done" / workspace_key
 
+    openspec_key = hashlib.sha256(
+        (workspace + ":openspec").encode()).hexdigest()[:16]
+    openspec_marker_host = DATA_DIR / ".init-done" / openspec_key
+
     init_prefix = "" if no_init else _init_prefix(workspace, init_script)
+    openspec_prefix = _openspec_prefix(workspace) if openspec else ""
     default_cmd = " ".join(command) if command else "opencode ."
     container = _container_name(workspace)
 
@@ -590,6 +632,7 @@ def _write_project_files(script_dir, workspace, *, ssh=False, github=False,
     container_cmd = (
         f'CMD="$(cat /workspace/{CMD_FILE_NAME} 2>/dev/null || echo opencode .)"; '
         + init_prefix
+        + openspec_prefix
         + 'eval "$CMD"'
     )
 
@@ -609,7 +652,8 @@ def _write_project_files(script_dir, workspace, *, ssh=False, github=False,
                 os.remove(stale)
 
     features = [f for f, on in
-                (("ssh", ssh), ("github", github), ("x11", x11), ("no-git", no_git))
+                (("ssh", ssh), ("github", github), ("x11", x11), ("no-git", no_git),
+                 ("openspec", openspec))
                 if on]
 
     # --- compose the run script --------------------------------------------
@@ -626,6 +670,7 @@ def _write_project_files(script_dir, workspace, *, ssh=False, github=False,
     L.append(f"# @init-script: {'none' if no_init else init_script}")
     L.append(f"# @no-git: {str(no_git).lower()}")
     L.append(f"# @x11: {str(x11).lower()}")
+    L.append(f"# @openspec: {str(openspec).lower()}")
     L.append("#")
     L.append("# Generated by 'sandbox-code project build'. Inspect, edit, or run directly:")
     L.append("#   bash .sandbox-run.sh")
@@ -663,6 +708,8 @@ def _write_project_files(script_dir, workspace, *, ssh=False, github=False,
     if force_init:
         L.append("# --force-init: drop the init marker so it re-runs on next start")
         L.append(f"rm -f {shlex.quote(str(marker_host))}")
+        if openspec:
+            L.append(f"rm -f {shlex.quote(str(openspec_marker_host))}")
         L.append("")
     L.append("# Reuse an existing container for this workspace, else create a fresh one")
     L.append('if docker inspect "$CONTAINER" >/dev/null 2>&1; then')
@@ -676,6 +723,8 @@ def _write_project_files(script_dir, workspace, *, ssh=False, github=False,
     L.append("")
     L.append("# Fresh container: nothing is installed yet, so always re-run init")
     L.append(f"rm -f {shlex.quote(str(marker_host))}")
+    if openspec:
+        L.append(f"rm -f {shlex.quote(str(openspec_marker_host))}")
     L.append("")
     L.append("run_flags=(-i)")
     L.append("[[ -t 0 ]] && run_flags=(-it)")
