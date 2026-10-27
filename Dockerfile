@@ -9,6 +9,7 @@ RUN apt-get update && apt-get install -y \
     build-essential \
     ca-certificates gnupg lsb-release \
     python3 python3-pip python3-venv \
+    xclip xsel rlwrap \
     sudo \
     && rm -rf /var/lib/apt/lists/*
 
