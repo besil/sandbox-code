@@ -21,7 +21,8 @@ TEMPLATES_SUBDIR = "templates"
 CONFIG_SUBDIR = "config"
 FIREWALL_SUBDIR = os.path.join("config", "firewall")
 
-# Generated project files (always written to the workspace root).
+# Generated project files live in a hidden folder inside the workspace.
+SANDBOX_DIR = ".sandbox-code"
 RUN_SCRIPT_NAME = ".sandbox-run.sh"
 PRE_SCRIPT_NAME = ".sandbox-pre.sh"
 POST_SCRIPT_NAME = ".sandbox-post.sh"
@@ -29,6 +30,25 @@ INIT_SCRIPT_NAME = ".sandbox-init.sh"
 # Holds the command the container should run; read at container start so an
 # existing (persistent) container can be reused with a different command.
 CMD_FILE_NAME = ".sandbox-cmd"
+
+# Default init script, relative to the workspace root.
+DEFAULT_INIT_SCRIPT = os.path.join(SANDBOX_DIR, INIT_SCRIPT_NAME)
+
+
+def _sb_dir(workspace):
+    """Host path to the workspace's .sandbox-code directory."""
+    return os.path.join(workspace, SANDBOX_DIR)
+
+
+def _sb_file(workspace, name):
+    """Host path to a file inside the workspace's .sandbox-code directory."""
+    return os.path.join(workspace, SANDBOX_DIR, name)
+
+
+def _sb_container(name):
+    """Container-side path for a file in .sandbox-code (mounted at /workspace)."""
+    return f"/workspace/{SANDBOX_DIR}/{name}"
+
 
 API_KEY_VARS = [
     "DEEPSEEK_API_KEY",
@@ -84,19 +104,19 @@ def _build_parser():
     sub = parser.add_subparsers(dest="subcommand", metavar="<command>")
 
     # -- run -----------------------------------------------------------------
-    p = sub.add_parser("run", help="Execute the generated .sandbox-run.sh")
+    p = sub.add_parser("run", help="Execute the generated .sandbox-code/.sandbox-run.sh")
     _add_run_args(p)
 
     # -- project -------------------------------------------------------------
     p = sub.add_parser("project", help="Manage the current project")
     psub = p.add_subparsers(dest="project_command", metavar="<subcommand>")
 
-    sp = psub.add_parser("init", help="Create .sandbox-init.sh and .sandbox-run.sh")
+    sp = psub.add_parser("init", help="Create .sandbox-code/.sandbox-init.sh and .sandbox-code/.sandbox-run.sh")
     _add_workspace_arg(sp)
 
     sp = psub.add_parser(
         "build",
-        help="Generate/update .sandbox-run.sh and build the Docker image",
+        help="Generate/update .sandbox-code/.sandbox-run.sh and build the Docker image",
     )
     _add_workspace_arg(sp)
     _add_build_args(sp)
@@ -149,7 +169,7 @@ def _add_run_args(parser):
     parser.add_argument(
         "command", nargs=argparse.REMAINDER,
         help="Override the command to run inside the container "
-             "(default: the command baked into .sandbox-run.sh)",
+             "(default: the command baked into .sandbox-code/.sandbox-run.sh)",
     )
 
 
@@ -186,9 +206,9 @@ def _add_build_args(parser):
         help="Skip the project init script entirely",
     )
     parser.add_argument(
-        "--init-script", default=INIT_SCRIPT_NAME,
+        "--init-script", default=DEFAULT_INIT_SCRIPT,
         help=f"Init script to run inside the container, relative to workspace "
-             f"(default: {INIT_SCRIPT_NAME})",
+             f"(default: {DEFAULT_INIT_SCRIPT})",
     )
     parser.add_argument(
         "--force-init", action="store_true",
@@ -261,11 +281,11 @@ def _dispatch_network(script_dir, parser, args):
 
 def cmd_run(script_dir, args):
     workspace = os.path.abspath(getattr(args, "workspace", os.getcwd()))
-    run_script = os.path.join(workspace, RUN_SCRIPT_NAME)
+    run_script = _sb_file(workspace, RUN_SCRIPT_NAME)
 
     if not os.path.isfile(run_script):
         print(
-            f"[ERROR] No {RUN_SCRIPT_NAME} in {workspace}",
+            f"[ERROR] No {SANDBOX_DIR}/{RUN_SCRIPT_NAME} in {workspace}",
             file=sys.stderr,
         )
         print(
@@ -284,7 +304,7 @@ def cmd_run(script_dir, args):
 
 
 def cmd_project_build(script_dir, args):
-    """Generate/update .sandbox-run.sh and build the Docker image."""
+    """Generate/update .sandbox-code/.sandbox-run.sh and build the Docker image."""
     workspace = os.path.abspath(args.workspace)
     network_arg, filter_mode = _resolve_network(args)
     command = _strip_remainder(args.command)
@@ -309,20 +329,21 @@ def cmd_project_build(script_dir, args):
     # command. This installs everything up front so the first real `run` is
     # instant. The container is left stopped and then reused by `run`.
     print("[INFO] Preparing container (running the init script)…")
-    _run_script(workspace, os.path.join(workspace, RUN_SCRIPT_NAME), ["true"])
+    _run_script(workspace, _sb_file(workspace, RUN_SCRIPT_NAME), ["true"])
 
 
 def cmd_project_init(script_dir, args):
     workspace = os.path.abspath(args.workspace)
 
     template = os.path.join(script_dir, TEMPLATES_SUBDIR, INIT_SCRIPT_NAME)
-    dst = os.path.join(workspace, INIT_SCRIPT_NAME)
+    dst = _sb_file(workspace, INIT_SCRIPT_NAME)
     if os.path.exists(dst):
-        print(f"[INFO] {INIT_SCRIPT_NAME} already exists, keeping it")
+        print(f"[INFO] {SANDBOX_DIR}/{INIT_SCRIPT_NAME} already exists, keeping it")
     elif os.path.exists(template):
+        os.makedirs(_sb_dir(workspace), exist_ok=True)
         shutil.copy2(template, dst)
         os.chmod(dst, 0o755)
-        print(f"[INFO] Created {INIT_SCRIPT_NAME} from template")
+        print(f"[INFO] Created {SANDBOX_DIR}/{INIT_SCRIPT_NAME} from template")
     else:
         print(f"[WARNING] {INIT_SCRIPT_NAME} template not found in "
               f"{os.path.join(script_dir, TEMPLATES_SUBDIR)}",
@@ -334,10 +355,10 @@ def cmd_project_init(script_dir, args):
 
 def cmd_project_features(args):
     workspace = os.path.abspath(args.workspace)
-    run_script = os.path.join(workspace, RUN_SCRIPT_NAME)
+    run_script = _sb_file(workspace, RUN_SCRIPT_NAME)
 
     if not os.path.isfile(run_script):
-        print(f"[ERROR] No {RUN_SCRIPT_NAME} in {workspace}", file=sys.stderr)
+        print(f"[ERROR] No {SANDBOX_DIR}/{RUN_SCRIPT_NAME} in {workspace}", file=sys.stderr)
         print("        Run 'sandbox-code project init' first.", file=sys.stderr)
         sys.exit(1)
 
@@ -351,8 +372,8 @@ def cmd_project_features(args):
     entry = meta.get("entrypoint", "opencode .")
     container = meta.get("container", "?")
 
-    pre = os.path.isfile(os.path.join(workspace, PRE_SCRIPT_NAME))
-    post = os.path.isfile(os.path.join(workspace, POST_SCRIPT_NAME))
+    pre = os.path.isfile(_sb_file(workspace, PRE_SCRIPT_NAME))
+    post = os.path.isfile(_sb_file(workspace, POST_SCRIPT_NAME))
 
     def line(label, state, detail=""):
         state_col = f"{state:<9}"
@@ -389,8 +410,8 @@ def cmd_project_features(args):
 
     print(f"  Entry point:   {entry}")
     print()
-    line("Pre-hook", "present" if pre else "absent", PRE_SCRIPT_NAME)
-    line("Post-hook", "present" if post else "absent", POST_SCRIPT_NAME)
+    line("Pre-hook", "present" if pre else "absent", f"{SANDBOX_DIR}/{PRE_SCRIPT_NAME}")
+    line("Post-hook", "present" if post else "absent", f"{SANDBOX_DIR}/{POST_SCRIPT_NAME}")
     print()
     print("Change any of these with: sandbox-code project build [options]")
 
@@ -406,8 +427,8 @@ def cmd_project_clean(script_dir, args):
     print(f"[INFO] Removed container '{ctr_name}' (if it existed)")
 
     # Determine which init script was in use (for the marker key).
-    init_script = INIT_SCRIPT_NAME
-    run_script = os.path.join(workspace, RUN_SCRIPT_NAME)
+    init_script = DEFAULT_INIT_SCRIPT
+    run_script = _sb_file(workspace, RUN_SCRIPT_NAME)
     if os.path.isfile(run_script):
         meta = _read_metadata(run_script)
         if meta.get("init-script") and meta["init-script"] != "none":
@@ -423,10 +444,10 @@ def cmd_project_clean(script_dir, args):
     (DATA_DIR / ".init-done" / openspec_key).unlink(missing_ok=True)
 
     for name in (RUN_SCRIPT_NAME, PRE_SCRIPT_NAME, POST_SCRIPT_NAME, CMD_FILE_NAME):
-        path = os.path.join(workspace, name)
+        path = _sb_file(workspace, name)
         if os.path.exists(path):
             os.remove(path)
-            print(f"[INFO] Removed {name}")
+            print(f"[INFO] Removed {SANDBOX_DIR}/{name}")
 
     _clean_gitignore(workspace)
 
@@ -586,11 +607,12 @@ def _openspec_prefix(workspace):
 
 def _write_project_files(script_dir, workspace, *, ssh=False, github=False,
                          x11=False, no_git=False, openspec=False, no_init=False,
-                         init_script=INIT_SCRIPT_NAME, force_init=False,
+                         init_script=DEFAULT_INIT_SCRIPT, force_init=False,
                          network_arg=None, filter_mode=None, command=None):
-    """Generate .sandbox-run.sh (and host pre/post hooks) for this workspace."""
+    """Generate .sandbox-code/.sandbox-run.sh (and host pre/post hooks)."""
     workspace = os.path.abspath(workspace)
     command = command or []
+    os.makedirs(_sb_dir(workspace), exist_ok=True)
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
     DATA_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -630,7 +652,7 @@ def _write_project_files(script_dir, workspace, *, ssh=False, github=False,
     # This lets the persistent container be reused with a different command
     # (e.g. `run --bash`) without being recreated.
     container_cmd = (
-        f'CMD="$(cat /workspace/{CMD_FILE_NAME} 2>/dev/null || echo opencode .)"; '
+        f'CMD="$(cat {_sb_container(CMD_FILE_NAME)} 2>/dev/null || echo opencode .)"; '
         + init_prefix
         + openspec_prefix
         + 'eval "$CMD"'
@@ -647,7 +669,7 @@ def _write_project_files(script_dir, workspace, *, ssh=False, github=False,
         _write_firewall_scripts(workspace, filter_mode, network_name, iface, cidrs)
     else:
         for name in (PRE_SCRIPT_NAME, POST_SCRIPT_NAME):
-            stale = os.path.join(workspace, name)
+            stale = _sb_file(workspace, name)
             if os.path.exists(stale):
                 os.remove(stale)
 
@@ -673,13 +695,14 @@ def _write_project_files(script_dir, workspace, *, ssh=False, github=False,
     L.append(f"# @openspec: {str(openspec).lower()}")
     L.append("#")
     L.append("# Generated by 'sandbox-code project build'. Inspect, edit, or run directly:")
-    L.append("#   bash .sandbox-run.sh")
+    L.append(f"#   bash {SANDBOX_DIR}/{RUN_SCRIPT_NAME}")
     L.append("#")
     L.append("# An optional argument overrides the command run inside the container:")
-    L.append(f"#   bash {RUN_SCRIPT_NAME} 'exec bash'")
+    L.append(f"#   bash {SANDBOX_DIR}/{RUN_SCRIPT_NAME} 'exec bash'")
     L.append("set -eo pipefail")
     L.append("")
     L.append(f"WORKSPACE={shlex.quote(workspace)}")
+    L.append(f'SB_DIR="$WORKSPACE/{SANDBOX_DIR}"')
     L.append(f'CONTAINER={shlex.quote(container)}')
     L.append(f"CONTAINER_CMD={shlex.quote(container_cmd)}")
     L.append(f"DEFAULT_CMD={shlex.quote(default_cmd)}")
@@ -692,15 +715,15 @@ def _write_project_files(script_dir, workspace, *, ssh=False, github=False,
     L.append("fi")
     L.append("")
     L.append(f"# Publish it for the container to read at start (survives container reuse)")
-    L.append(f'printf %s "$CMD" > "$WORKSPACE/{CMD_FILE_NAME}"')
+    L.append(f'printf %s "$CMD" > "$SB_DIR/{CMD_FILE_NAME}"')
     L.append("")
     L.append("# Host-side pre-hook (firewall rules, etc.)")
-    L.append(f'if [[ -f "$WORKSPACE/{PRE_SCRIPT_NAME}" ]]; then')
-    L.append(f'  bash "$WORKSPACE/{PRE_SCRIPT_NAME}"')
+    L.append(f'if [[ -f "$SB_DIR/{PRE_SCRIPT_NAME}" ]]; then')
+    L.append(f'  bash "$SB_DIR/{PRE_SCRIPT_NAME}"')
     L.append("fi")
     L.append("cleanup() {")
-    L.append(f'  if [[ -f "$WORKSPACE/{POST_SCRIPT_NAME}" ]]; then')
-    L.append(f'    bash "$WORKSPACE/{POST_SCRIPT_NAME}"')
+    L.append(f'  if [[ -f "$SB_DIR/{POST_SCRIPT_NAME}" ]]; then')
+    L.append(f'    bash "$SB_DIR/{POST_SCRIPT_NAME}"')
     L.append("  fi")
     L.append("}")
     L.append("trap cleanup EXIT")
@@ -800,12 +823,12 @@ def _write_project_files(script_dir, workspace, *, ssh=False, github=False,
              '-c "$CONTAINER_CMD"')
     L.append("")
 
-    run_path = os.path.join(workspace, RUN_SCRIPT_NAME)
+    run_path = _sb_file(workspace, RUN_SCRIPT_NAME)
     with open(run_path, "w") as f:
         f.write("\n".join(L))
     os.chmod(run_path, 0o755)
 
-    print(f"[INFO] Wrote {RUN_SCRIPT_NAME}")
+    print(f"[INFO] Wrote {SANDBOX_DIR}/{RUN_SCRIPT_NAME}")
     summary = f"container: {container} | features: {' '.join(features) or 'none'}"
     if filter_mode:
         summary += f" | network: {filter_mode} ({network_name})"
@@ -818,7 +841,12 @@ def _write_project_files(script_dir, workspace, *, ssh=False, github=False,
 
 def _ensure_gitignore(workspace):
     """Append sandbox-code's generated files to .gitignore if missing."""
-    entries = [RUN_SCRIPT_NAME, PRE_SCRIPT_NAME, POST_SCRIPT_NAME, CMD_FILE_NAME]
+    # Ignore everything in .sandbox-code/ except the user-editable init script,
+    # which stays committable.
+    entries = [
+        f"{SANDBOX_DIR}/*",
+        f"!{SANDBOX_DIR}/{INIT_SCRIPT_NAME}",
+    ]
     gitignore = os.path.join(workspace, ".gitignore")
 
     existing = set()
@@ -843,7 +871,7 @@ def _ensure_gitignore(workspace):
 def _clean_gitignore(workspace):
     """Remove sandbox-code's generated entries from .gitignore."""
     managed = {
-        RUN_SCRIPT_NAME, PRE_SCRIPT_NAME, POST_SCRIPT_NAME, CMD_FILE_NAME,
+        f"{SANDBOX_DIR}/*", f"!{SANDBOX_DIR}/{INIT_SCRIPT_NAME}",
         "# sandbox-code generated files",
     }
     gitignore = os.path.join(workspace, ".gitignore")
@@ -863,16 +891,17 @@ def _clean_gitignore(workspace):
 
 
 def _write_firewall_scripts(workspace, mode, network, iface, cidrs):
-    pre_path = os.path.join(workspace, PRE_SCRIPT_NAME)
-    post_path = os.path.join(workspace, POST_SCRIPT_NAME)
+    os.makedirs(_sb_dir(workspace), exist_ok=True)
+    pre_path = _sb_file(workspace, PRE_SCRIPT_NAME)
+    post_path = _sb_file(workspace, POST_SCRIPT_NAME)
     with open(pre_path, "w") as f:
         f.write(_firewall_script(mode, "pre", network, iface, cidrs))
     os.chmod(pre_path, 0o755)
     with open(post_path, "w") as f:
         f.write(_firewall_script(mode, "post", network, iface, cidrs))
     os.chmod(post_path, 0o755)
-    print(f"[INFO] Wrote {PRE_SCRIPT_NAME} and {POST_SCRIPT_NAME} "
-          f"({mode}, iface {iface})")
+    print(f"[INFO] Wrote {SANDBOX_DIR}/{PRE_SCRIPT_NAME} and "
+          f"{SANDBOX_DIR}/{POST_SCRIPT_NAME} ({mode}, iface {iface})")
 
 
 def _firewall_script(mode, phase, network, iface, cidrs):

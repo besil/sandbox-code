@@ -2,8 +2,9 @@
 # sandbox-code per-project init script (OPT-IN TEMPLATE — copy, don't run as-is).
 #
 # The base image ships WITHOUT language runtimes. To give a project Go, Java,
-# Maven, Clojure (or anything else), copy this file into the project root as
-# /workspace/.sandbox-init.sh and trim it to only what the project needs.
+# Maven, Clojure (or anything else), copy this file into the project's
+# .sandbox-code/ folder as .sandbox-code/.sandbox-init.sh and trim it to only
+# what the project needs.
 #
 # - Runs as root, once per project (content hash is cached in the persistent
 #   opencode-data volume — see --no-init / --force-init / --init-script).
