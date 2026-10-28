@@ -617,21 +617,11 @@ def _write_project_files(script_dir, workspace, *, ssh=False, github=False,
     DATA_DIR.mkdir(parents=True, exist_ok=True)
 
     # Seed persistent OpenCode config from the repo defaults (once).
-    for name in ("opencode.jsonc", "tui.json"):
+    for name in ("opencode.jsonc", "cli.json"):
         dst = CONFIG_DIR / name
         if not dst.exists():
             src = pathlib.Path(script_dir) / CONFIG_SUBDIR / name
             if src.exists():
-                shutil.copy2(src, dst)
-
-    # Seed the local plugin that pins the openspec-plan agent model (once).
-    plugins_src = pathlib.Path(script_dir) / CONFIG_SUBDIR / "plugins"
-    if plugins_src.is_dir():
-        plugins_dst = CONFIG_DIR / "plugins"
-        plugins_dst.mkdir(parents=True, exist_ok=True)
-        for src in sorted(plugins_src.glob("*.js")):
-            dst = plugins_dst / src.name
-            if not dst.exists():
                 shutil.copy2(src, dst)
 
     workspace_key = hashlib.sha256(
