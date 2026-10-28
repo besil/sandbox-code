@@ -12,9 +12,7 @@ templates/                                     # files users copy into their own
   └── .sandbox-init.sh
 config/                                        # the tool's own runtime configuration
   ├── opencode.jsonc
-  ├── tui.json
-  ├── plugins/
-  │   └── openspec-model.js
+  ├── cli.json
   └── firewall/
       ├── blacklist-networks.conf
       └── whitelist-networks.conf
@@ -55,7 +53,7 @@ sandbox-code (shell wrapper) → sandbox-code.py (Python) → bash .sandbox-run.
 - Multiple apt repos merged into a single RUN step to keep layers low.
 - No Docker CLI, no socket mount — the container has no host Docker access.
 - Persistent dirs (`~/.config/opencode`, `~/.local/share/opencode`) are pre-created and chowned to `ubuntu` so bind mounts inherit correct ownership.
-- **No language runtimes or optional tooling are baked in** beyond the essentials (git, curl, wget, vim, jq, build-essential, ca-certificates, `python3`, Node.js — the last required by `opencode-ai`). Go, Java/Maven, Clojure, Chromium, and the former utilities (`poppler-utils`, `gping bind9-dnsutils iproute2 iputils-ping`, `xclip xsel`, `rlwrap`) are installed per project via an **opt-in** `.sandbox-init.sh` placed in the workspace root (see the `project build` command's `--init-script` / `--force-init` / `--no-init` flags). The repo ships a `.sandbox-init.sh` **template** under `templates/` for this; projects without one get nothing extra. Chromium is **not** shipped: Ubuntu's `chromium-browser` apt package is a snap stub that cannot run inside the container — projects needing a headless browser install their own copy (e.g. `npx playwright install --with-deps chromium`).
+- **No language runtimes or optional tooling are baked in** beyond the essentials (git, curl, wget, vim, jq, build-essential, ca-certificates, `python3`, Node.js — the last required by `@opencode/cli`). Go, Java/Maven, Clojure, Chromium, and the former utilities (`poppler-utils`, `gping bind9-dnsutils iproute2 iputils-ping`, `xclip xsel`, `rlwrap`) are installed per project via an **opt-in** `.sandbox-init.sh` placed in the workspace root (see the `project build` command's `--init-script` / `--force-init` / `--no-init` flags). The repo ships a `.sandbox-init.sh` **template** under `templates/` for this; projects without one get nothing extra. Chromium is **not** shipped: Ubuntu's `chromium-browser` apt package is a snap stub that cannot run inside the container — projects needing a headless browser install their own copy (e.g. `npx playwright install --with-deps chromium`).
 
 ## Volumes & mounts
 
@@ -66,7 +64,7 @@ sandbox-code (shell wrapper) → sandbox-code.py (Python) → bash .sandbox-run.
 - `--github`: mounts `~/.ssh` (ro) + `~/.config/gh` (rw). **Security caveat: exposes SSH keys and the GitHub token (rw) to the agent.** Not used by the current maintainer; kept from the original author.
 - `--x11`: mounts the X11 socket + `XAUTHORITY` (ro). **Security caveat: gives the container access to the host display (keylogging, screen capture, input injection), not just the clipboard.** Effectively unnecessary for copy/paste: OpenCode emits OSC 52 on every copy, and Shift+selection works in VTE terminals (e.g. lxterminal). Kept for users who rely on `xclip`/`xsel` inside the container.
 - `--no-git`: `_ensure_project_git()` creates a disposable per-workspace git repo under `~/.config/sandbox-code/gitmirror/<sha256(workspace)[:16]/.git` (init + one empty commit) and mounts it over `/workspace/.git`, hiding the real repo while giving OpenCode a stable `project_id`. Falls back to a tmpfs if `git` is unavailable on the host.
-- `--openspec`: bakes an `_openspec_prefix()` snippet into the container command that (once per project, marker-guarded) runs `sudo npm install -g @fission-ai/openspec@latest` and `openspec init --tools opencode` in `/workspace`. `config/opencode.jsonc` enables the `opencode-plugin-openspec` plugin and maps its `openspec-plan` primary agent to `openrouter/deepseek/deepseek-v4-pro`. Needs network, so it conflicts with `--no-network`.
+- `--openspec`: bakes an `_openspec_prefix()` snippet into the container command that (once per project, marker-guarded) runs `sudo npm install -g @fission-ai/openspec@latest` and `openspec init --tools opencode` in `/workspace`. `config/opencode.jsonc` enables the `opencode-2-openspec-plugin` (V2 `plugins` key) and maps its `openspec-planner` primary agent to `openrouter/deepseek/deepseek-v4-pro`. Needs network, so it conflicts with `--no-network`.
 - Mounts are written into `.sandbox-run.sh` as literal `docker run` arguments; there is no host-side dedup helper anymore.
 
 ## Env vars

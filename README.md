@@ -118,7 +118,7 @@ so the first real `run` starts instantly. To change features, run it again.
 | `--github` | Mount `~/.ssh` (read-only) and `~/.config/gh` (writable). **Security: exposes your SSH keys and GitHub token (rw) to the agent** |
 | `--x11` | Mount X11 socket for clipboard support. **Security: grants the container access to the host display — not just the clipboard.** Usually unnecessary — see [Clipboard](#clipboard) |
 | `--no-git` | Hide the real `.git`, exposing a disposable per-project repo |
-| `--openspec` | Install the [OpenSpec](https://openspec.dev) CLI and run `openspec init --tools opencode` once on first container start (also enables the `openspec-plan` agent — see [OpenSpec](#openspec)) |
+| `--openspec` | Install the [OpenSpec](https://openspec.dev) CLI and run `openspec init --tools opencode` once on first container start (also enables the `openspec-planner` agent — see [OpenSpec](#openspec)) |
 | `--no-init` | Skip the project init script entirely |
 | `--init-script FILENAME` | Init script to run at container start, relative to workspace (default: `.sandbox-init.sh`) |
 | `--force-init` | Drop the per-project marker so the init script runs again on next launch |
@@ -296,13 +296,13 @@ Both steps are guarded by a marker in the persistent `opencode-data` volume, so 
 
 Because the install and `openspec init` need network access, `--openspec` is incompatible with `--no-network`.
 
-### The `openspec-plan` agent
+### The `openspec-planner` agent
 
-`--openspec` also relies on the [`opencode-plugin-openspec`](https://github.com/Octane0411/opencode-plugin-openspec) plugin, which adds an **`openspec-plan`** primary agent (the "OpenSpec Architect"): it may write OpenSpec documents (`openspec/**`, `specs/**`, `project.md`, `AGENTS.md`) while keeping the rest of the codebase read-only, so planning never leaks into implementation.
+`--openspec` also relies on the [`opencode-2-openspec-plugin`](https://github.com/besil/opencode-2-openspec-plugin) plugin, which adds an **`openspec-planner`** primary agent (the "OpenSpec Architect"): it may write OpenSpec documents (`openspec/**`, `specs/**`, `project.md`, `AGENTS.md`) while keeping the rest of the codebase read-only, so planning never leaks into implementation. The plugin activates only when it detects an OpenSpec project.
 
-The plugin and the agent's model are declared in the persistent OpenCode config (`config/opencode.jsonc` → `~/.config/sandbox-code/opencode-config/`). The `openspec-plan` agent is mapped to `openrouter/deepseek/deepseek-v4-pro` — a high-reasoning model, which OpenSpec recommends for planning. Because the plugin replaces the agent definition (dropping any `model`), a small local plugin (`config/plugins/openspec-model.js`) re-applies the model after it loads.
+The plugin and the agent's model are declared in the persistent OpenCode config (`config/opencode.jsonc` → `~/.config/sandbox-code/opencode-config/`). The `openspec-planner` agent is mapped to `openrouter/deepseek/deepseek-v4-pro` — a high-reasoning model, which OpenSpec recommends for planning. The plugin uses OpenCode V2's agent upsert, so the model declared under `agents.openspec-planner` is preserved.
 
-> The OpenCode config is seeded **once**. If you already have a `~/.config/sandbox-code/opencode-config/opencode.jsonc`, the new `plugin`/`openspec-plan` entries are not added automatically — run `sandbox-code reset` or add them manually.
+> The OpenCode config is seeded **once**. If you already have a `~/.config/sandbox-code/opencode-config/opencode.jsonc`, the new `plugins`/`openspec-planner` entries are not added automatically — run `sandbox-code reset` or add them manually.
 
 ## Persistent data
 
@@ -320,6 +320,8 @@ To wipe everything and start fresh:
 ```bash
 sandbox-code reset
 ```
+
+> **Upgrading an existing install:** this sandbox now targets OpenCode V2, which reads `cli.json` (not the V1 `tui.json`) and uses the V2 `agents`/`plugins` config keys. Seeded config files are written only once, so delete the old files in `~/.config/sandbox-code/opencode-config/` (or run `sandbox-code reset`, which also clears stored credentials) and rebuild to pick up the new layout.
 
 ## Network isolation
 
