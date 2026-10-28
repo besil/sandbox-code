@@ -167,6 +167,10 @@ def _add_run_args(parser):
         help="Drop into an interactive bash shell instead of the configured command",
     )
     parser.add_argument(
+        "--new-session", action="store_true",
+        help="Start a new OpenCode session instead of continuing the previous one",
+    )
+    parser.add_argument(
         "command", nargs=argparse.REMAINDER,
         help="Override the command to run inside the container "
              "(default: the command baked into .sandbox-code/.sandbox-run.sh)",
@@ -299,6 +303,10 @@ def cmd_run(script_dir, args):
         override = [" ".join(override)]
     elif getattr(args, "bash", False):
         override = ["exec bash"]
+    elif getattr(args, "new_session", False):
+        override = ["opencode ."]
+    else:
+        override = ["opencode -c"]
 
     _run_script(workspace, run_script, override)
 
@@ -634,7 +642,7 @@ def _write_project_files(script_dir, workspace, *, ssh=False, github=False,
 
     init_prefix = "" if no_init else _init_prefix(workspace, init_script)
     openspec_prefix = _openspec_prefix(workspace) if openspec else ""
-    default_cmd = " ".join(command) if command else "opencode ."
+    default_cmd = " ".join(command) if command else "opencode -c"
     container = _container_name(workspace)
 
     # The container's baked command reads the desired command from the mounted
