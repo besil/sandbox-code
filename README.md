@@ -24,24 +24,25 @@ source ~/.bashrc
 ## Quick start
 
 `sandbox-code` works in two phases: a **build** phase that generates an
-inspectable `.sandbox-run.sh`, and a **run** phase that just executes it.
+inspectable `.sandbox-code/sandbox-run.sh`, and a **run** phase that just
+executes it.
 
 ```bash
-# First-time setup in a project: creates .sandbox-init.sh and .sandbox-run.sh
+# First-time setup in a project: creates .sandbox-code/sandbox-init.sh and .sandbox-code/sandbox-run.sh
 sandbox-code project init
 
-# Configure features (rewrites .sandbox-run.sh, rebuilds the image, runs init)
+# Configure features (rewrites .sandbox-code/sandbox-run.sh, rebuilds the image, runs init)
 sandbox-code project build --github --whitelist
 
 # Inspect exactly what is enabled
 sandbox-code project features
 
-# Run it (executes .sandbox-run.sh)
+# Run it (executes .sandbox-code/sandbox-run.sh)
 sandbox-code
 ```
 
-The generated `.sandbox-run.sh` is a plain bash script — read it, edit it, or run
-it directly with `bash .sandbox-run.sh`.
+The generated `.sandbox-code/sandbox-run.sh` is a plain bash script — read it,
+edit it, or run it directly with `bash .sandbox-code/sandbox-run.sh`.
 
 ## API keys
 
@@ -65,14 +66,14 @@ Keys are forwarded to the container automatically. Alternatively, you can run `/
 sandbox-code [command] [options]
 ```
 
-Without a command, `sandbox-code` runs `.sandbox-run.sh` (equivalent to
+Without a command, `sandbox-code` runs `.sandbox-code/sandbox-run.sh` (equivalent to
 `sandbox-code run`).
 
 | Command | Description |
 |---|---|
-| `run [options] [-- command...]` | Execute the generated `.sandbox-run.sh` (default) |
-| `project init` | Create `.sandbox-init.sh` and an initial `.sandbox-run.sh` |
-| `project build [options] [-- command...]` | Generate/update `.sandbox-run.sh`, build the image, and initialise the container |
+| `run [options] [-- command...]` | Execute the generated `.sandbox-code/sandbox-run.sh` (default) |
+| `project init` | Create `.sandbox-code/sandbox-init.sh` and an initial `.sandbox-code/sandbox-run.sh` |
+| `project build [options] [-- command...]` | Generate/update `.sandbox-code/sandbox-run.sh`, build the image, and initialise the container |
 | `project features` | List the features currently enabled for the workspace |
 | `project clean` | Remove the container, init marker, generated files and their `.gitignore` entries |
 | `host network blacklist` / `host network whitelist` | Apply firewall rules on the host |
@@ -86,12 +87,12 @@ Without a command, `sandbox-code` runs `.sandbox-run.sh` (equivalent to
 
 ### `run` options
 
-`run` executes `.sandbox-run.sh`. By default it runs the command baked into that
+`run` executes `.sandbox-code/sandbox-run.sh`. By default it runs the command baked into that
 script; you can override it per launch.
 
 | Flag | Description |
 |---|---|
-| `-w`, `--workspace PATH` | Directory containing `.sandbox-run.sh` (default: current directory) |
+| `-w`, `--workspace PATH` | Directory containing `.sandbox-code/sandbox-run.sh` (default: current directory) |
 | `--bash` | Drop into an interactive bash shell instead of the configured command |
 | `-- command...` | Override the command run inside the container for this launch |
 
@@ -106,7 +107,7 @@ The init script always runs first, regardless of the override.
 ### `project build` options
 
 `project build` is the only command that takes the feature flags. It writes them
-into `.sandbox-run.sh`, rebuilds the Docker image, and then runs the container
+into `.sandbox-code/sandbox-run.sh`, rebuilds the Docker image, and then runs the container
 once with a no-op command to resolve the [init script](#init-script) up front —
 so the first real `run` starts instantly. To change features, run it again.
 
@@ -118,8 +119,9 @@ so the first real `run` starts instantly. To change features, run it again.
 | `--github` | Mount `~/.ssh` (read-only) and `~/.config/gh` (writable). **Security: exposes your SSH keys and GitHub token (rw) to the agent** |
 | `--x11` | Mount X11 socket for clipboard support. **Security: grants the container access to the host display — not just the clipboard.** Usually unnecessary — see [Clipboard](#clipboard) |
 | `--no-git` | Hide the real `.git`, exposing a disposable per-project repo |
+| `--openspec` | Install the [OpenSpec](https://openspec.dev) CLI and run `openspec init --tools opencode` once on first container start (also enables the `openspec-planner` agent — see [OpenSpec](#openspec)) |
 | `--no-init` | Skip the project init script entirely |
-| `--init-script FILENAME` | Init script to run at container start, relative to workspace (default: `.sandbox-init.sh`) |
+| `--init-script FILENAME` | Init script to run at container start, relative to workspace (default: `.sandbox-code/sandbox-init.sh`) |
 | `--force-init` | Drop the per-project marker so the init script runs again on next launch |
 | `--no-network` | Disable all networking (`--network none`) |
 | `--network NAME` | Use a specific Docker network (default: bridge) |
@@ -138,30 +140,31 @@ sandbox-code                   # runs npm test
 
 ## Generated files
 
-All generated files live in the workspace root:
+All generated files live in the hidden `.sandbox-code/` folder inside the workspace:
 
 | File | Written by | Purpose |
 |---|---|---|
-| `.sandbox-run.sh` | `project init`, `project build` | The full, inspectable `docker run` command (plus container reuse and init logic) |
-| `.sandbox-pre.sh` | `project build --blacklist` / `--whitelist` | Host-side firewall setup, run just before the container starts |
-| `.sandbox-post.sh` | `project build --blacklist` / `--whitelist` | Host-side firewall teardown, run when the container exits |
-| `.sandbox-cmd` | `run` | The command the container should run for the current launch (read at container start) |
-| `.sandbox-init.sh` | `project init` | Per-project init script template (edit it, or delete it for nothing extra) |
+| `sandbox-run.sh` | `project init`, `project build` | The full, inspectable `docker run` command (plus container reuse and init logic) |
+| `sandbox-pre.sh` | `project build --blacklist` / `--whitelist` | Host-side firewall setup, run just before the container starts |
+| `sandbox-post.sh` | `project build --blacklist` / `--whitelist` | Host-side firewall teardown, run when the container exits |
+| `sandbox-cmd` | `run` | The command the container should run for the current launch (read at container start) |
+| `sandbox-init.sh` | `project init` | Per-project init script template (edit it, or delete it for nothing extra) |
 
-`project init` and `project build` also append the generated `.sandbox-*.sh` filenames
-(and `.sandbox-cmd`) to the workspace `.gitignore` (if not already listed).
+`project init` and `project build` also add `.sandbox-code/*` (and the negation
+`!.sandbox-code/sandbox-init.sh`, so the init script stays committable) to the
+workspace `.gitignore` (if not already listed).
 
-Because `.sandbox-run.sh` is a normal script, it is the single place to look when
+Because `.sandbox-code/sandbox-run.sh` is a normal script, it is the single place to look when
 debugging a launch. It accepts an optional argument to override the command run
 inside the container:
 
 ```bash
-bash .sandbox-run.sh              # default command
-bash .sandbox-run.sh 'exec bash'  # shell instead
+bash .sandbox-code/sandbox-run.sh              # default command
+bash .sandbox-code/sandbox-run.sh 'exec bash'  # shell instead
 ```
 
 This is exactly what `sandbox-code run --bash` / `sandbox-code run -- cmd` do.
-The chosen command is written to `.sandbox-cmd`, which the container reads at
+The chosen command is written to `.sandbox-code/sandbox-cmd`, which the container reads at
 start — so an override also works when resuming an existing container.
 `host network blacklist` / `host network whitelist` apply the same rules as the pre-hook,
 but without launching a container.
@@ -173,9 +176,9 @@ launch. This keeps everything the [init script](#init-script) installed (Go, Jav
 project deps, …) so restarting the sandbox is instant instead of reinstalling packages.
 
 - The container name is deterministic — **`sandbox-code-<workspace-folder-name>`**. When
-  `.sandbox-run.sh` runs, it resumes the container by name with `docker start`/`attach` if
+  `.sandbox-code/sandbox-run.sh` runs, it resumes the container by name with `docker start`/`attach` if
   it exists, otherwise it creates a fresh one.
-- Resuming re-runs the container's baked command, which reads `.sandbox-cmd` — so
+- Resuming re-runs the container's baked command, which reads `.sandbox-code/sandbox-cmd` — so
   `sandbox-code run --bash` / `-- cmd` take effect even on an existing container.
   Mount/feature flags (`--ssh`, `--github`, `--x11`, `--network`) are baked at build time;
   to change them, run `project build` again and clean the project.
@@ -187,8 +190,9 @@ project deps, …) so restarting the sandbox is instant instead of reinstalling 
   ```
 
   (equivalent to `docker rm -f sandbox-code-<folder-name>` plus removing the
-  generated `.sandbox-run.sh`, `.sandbox-pre.sh`, `.sandbox-post.sh` and
-  `.sandbox-cmd` files, and their `.gitignore` entries).
+  generated `.sandbox-code/sandbox-run.sh`, `.sandbox-code/sandbox-pre.sh`,
+  `.sandbox-code/sandbox-post.sh` and `.sandbox-code/sandbox-cmd` files, and
+  their `.gitignore` entries).
 
 ## Credential exposure
 
@@ -222,11 +226,11 @@ Through tmux, OSC 52 additionally needs `set -g set-clipboard on` (and `set -g a
 
 The container can run a project-specific initialisation script before OpenCode (or any other main command) starts. This is useful for installing project dependencies, setting environment variables, or any other setup that should happen once per project.
 
-The base image ships **without** language runtimes (Go, Java, Maven, Clojure). To give a project them, copy the [`.sandbox-init.sh` template](/templates/.sandbox-init.sh) from this repo into the project root and trim it to what the project needs. Projects **without** an init script get **nothing extra installed** — the lean base image is the default.
+The base image ships **without** language runtimes (Go, Java, Maven, Clojure). To give a project them, copy the [`sandbox-init.sh` template](/templates/sandbox-init.sh) from this repo into the project's `.sandbox-code/` folder as `.sandbox-code/sandbox-init.sh` and trim it to what the project needs. Projects **without** an init script get **nothing extra installed** — the lean base image is the default.
 
 ### Behaviour
 
-1. On container start, `sandbox-code` checks whether an init script exists at `/workspace/<name>` (default: `.sandbox-init.sh`).
+1. On container start, `sandbox-code` checks whether an init script exists at `/workspace/<name>` (default: `.sandbox-code/sandbox-init.sh`).
 2. If it exists, its content is hashed and compared against a stored marker at `/home/ubuntu/.local/share/opencode/.init-done/<workspace-hash>`.
 3. If no marker exists **or** the init script content has changed, the script is run **as root** inside the container via `sudo`.
 4. On success, the content hash is written to the marker file.
@@ -236,9 +240,9 @@ The base image ships **without** language runtimes (Go, Java, Maven, Clojure). T
 
 ### Env vars
 
-Because the script is **sourced** (`. /workspace/.sandbox-init.sh`) rather than executed as a subprocess, any `export` statements in the script are visible to OpenCode and all child processes.
+Because the script is **executed** as a subprocess (`sudo bash /workspace/.sandbox-code/sandbox-init.sh`) rather than sourced into the OpenCode process, `export` statements in it apply only to that run and are **not** visible to OpenCode or its child processes. Use it to install system packages and project dependencies; to pass an environment variable through to OpenCode, set it in the container command instead (e.g. `sandbox-code project build -- 'MY_VAR=value opencode .'`).
 
-### Example custom `.sandbox-init.sh`
+### Example custom `sandbox-init.sh`
 
 ```bash
 #!/bin/bash
@@ -251,7 +255,7 @@ export DEBUG="1"
 # Markers track content hash — this script only runs when its content changes.
 ```
 
-Place the script in your project root, make it executable, and launch normally:
+Place the script in the project's `.sandbox-code/` folder, make it executable, and launch normally:
 
 ```bash
 sandbox-code -w ~/projects/myapp
@@ -259,11 +263,11 @@ sandbox-code -w ~/projects/myapp
 
 ### CLI flags
 
-The init-script flags live on `project build` (they are baked into `.sandbox-run.sh`):
+The init-script flags live on `project build` (they are baked into `.sandbox-code/sandbox-run.sh`):
 
 | Flag | Description |
 |------|-------------|
-| `--init-script FILENAME` | Custom init script filename relative to `/workspace` (default: `.sandbox-init.sh`) |
+| `--init-script FILENAME` | Custom init script filename relative to `/workspace` (default: `.sandbox-code/sandbox-init.sh`) |
 | `--force-init` | Drop the per-project marker, forcing the init script to run again on the next launch |
 | `--no-init` | Skip the init script entirely, even if it exists |
 
@@ -277,6 +281,31 @@ sandbox-code project build --force-init
 # Skip init entirely
 sandbox-code project build --no-init
 ```
+
+## OpenSpec
+
+Pass `--openspec` to `project build` to set up [OpenSpec](https://openspec.dev) — spec-driven development — inside the sandbox:
+
+```bash
+sandbox-code project build --openspec
+```
+
+On the first container start (which happens during the build), `sandbox-code`:
+
+1. Installs the OpenSpec CLI: `npm install -g @fission-ai/openspec@latest`.
+2. Runs `openspec init --tools opencode` in `/workspace`, creating the `openspec/` folder and the `.opencode/` skills/commands (`/opsx-apply`, …).
+
+Both steps are guarded by a marker in the persistent `opencode-data` volume, so they run **once per project**. They re-run when the container is recreated or with `--force-init`, and `project clean` removes the marker.
+
+Because the install and `openspec init` need network access, `--openspec` is incompatible with `--no-network`.
+
+### The `openspec-planner` agent
+
+`--openspec` also relies on the [`opencode-2-openspec-plugin`](https://github.com/besil/opencode-2-openspec-plugin) plugin, which adds an **`openspec-planner`** primary agent (the "OpenSpec Architect"): it may write OpenSpec documents (`openspec/**`, `specs/**`, `project.md`, `AGENTS.md`) while keeping the rest of the codebase read-only, so planning never leaks into implementation. The plugin activates only when it detects an OpenSpec project.
+
+The plugin and the agent's model are declared in the persistent OpenCode config (`config/opencode.jsonc` → `~/.config/sandbox-code/opencode-config/`). The `openspec-planner` agent is mapped to `openrouter/deepseek/deepseek-v4-pro` — a high-reasoning model, which OpenSpec recommends for planning. The plugin uses OpenCode V2's agent upsert, so the model declared under `agents.openspec-planner` is preserved.
+
+> The OpenCode config is seeded **once**. If you already have a `~/.config/sandbox-code/opencode-config/opencode.jsonc`, the new `plugins`/`openspec-planner` entries are not added automatically — run `sandbox-code reset` or add them manually.
 
 ## Persistent data
 
@@ -295,12 +324,14 @@ To wipe everything and start fresh:
 sandbox-code reset
 ```
 
+> **Upgrading an existing install:** this sandbox now targets OpenCode V2, which reads `cli.json` (not the V1 `tui.json`) and uses the V2 `agents`/`plugins` config keys. Seeded config files are written only once, so delete the old files in `~/.config/sandbox-code/opencode-config/` (or run `sandbox-code reset`, which also clears stored credentials) and rebuild to pick up the new layout.
+
 ## Network isolation
 
 Use `sandbox-code project build --blacklist` or `sandbox-code project build --whitelist` to bake
-network restrictions into `.sandbox-run.sh`. The build step also generates
-`.sandbox-pre.sh` (applies the firewall rules before the container starts) and
-`.sandbox-post.sh` (removes them when it exits), and creates the Docker network
+network restrictions into `.sandbox-code/sandbox-run.sh`. The build step also generates
+`.sandbox-code/sandbox-pre.sh` (applies the firewall rules before the container starts) and
+`.sandbox-code/sandbox-post.sh` (removes them when it exits), and creates the Docker network
 if needed. Applying rules requires `sudo` on the host.
 
 Both config files live in the workspace root. Create a starting template with:
@@ -354,8 +385,8 @@ install them per project via the [init script](#init-script).
 ### Optional packages on demand
 
 There is **no** built-in default installer — a project gets exactly what its own
-`.sandbox-init.sh` installs (cached once per project by content hash). Use the
-[`.sandbox-init.sh` template](/templates/.sandbox-init.sh) from this repo as a starting point,
+`.sandbox-code/sandbox-init.sh` installs (cached once per project by content hash). Use the
+[`sandbox-init.sh` template](/templates/sandbox-init.sh) from this repo as a starting point,
 or these snippets inside a custom per-project init script:
 
 | Package | Init script snippet |
@@ -369,7 +400,7 @@ or these snippets inside a custom per-project init script:
 | Clipboard | `apt-get install -y xclip xsel` |
 | Readline wrapper | `apt-get install -y rlwrap` |
 
-Projects without a `.sandbox-init.sh` get **nothing** extra installed.
+Projects without a `.sandbox-code/sandbox-init.sh` get **nothing** extra installed.
 
 ## Using in other projects
 
