@@ -3,3 +3,5 @@ __pycache__/
 .env
 
 # Generated per-workspace by sandbox-code (see sandbox-code.py)
+.sandbox-code/*
+!.sandbox-code/sandbox-init.sh

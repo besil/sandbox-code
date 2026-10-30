@@ -1,11 +1,17 @@
 {
   "$schema": "https://opencode.ai/config.json",
-  "agent": {
+  "agents": {
     "plan": {
       "model": "openrouter/deepseek/deepseek-v4-pro"
     },
     "build": {
       "model": "openrouter/deepseek/deepseek-v4.1-flash"
+    },
+    "openspec-planner": {
+      "model": "openrouter/deepseek/deepseek-v4-pro"
     }
-  }
+  },
+  "plugins": [
+    "opencode-2-openspec-plugin"
+  ]
 }
