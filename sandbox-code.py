@@ -641,7 +641,6 @@ def _write_project_files(script_dir, workspace, *, ssh=False, github=False,
     openspec_marker_host = DATA_DIR / ".init-done" / openspec_key
 
     init_prefix = "" if no_init else _init_prefix(workspace, init_script)
-    init_prefix = "" if no_init else _init_prefix(workspace, init_script)
     openspec_prefix = _openspec_prefix(workspace) if openspec else ""
     default_cmd = " ".join(command) if command else "opencode -c"
     container = _container_name(workspace)
