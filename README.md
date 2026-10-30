@@ -309,19 +309,33 @@ The plugin and the agent's model are declared in the persistent OpenCode config 
 
 ## Persistent data
 
-OpenCode configuration and stored credentials survive container restarts:
+OpenCode's configuration and state live on the **host**, under `~/.config/sandbox-code/`, and are bind-mounted into the container. The container itself is disposable — `project clean` (or `docker rm -f sandbox-code-<folder>`) deletes it — so these mounts are what keep your setup, credentials and init progress across restarts and rebuilds.
+
+| Host path | Mounted at | Holds |
+|---|---|---|
+| `~/.config/sandbox-code/opencode-config/` | `/home/ubuntu/.config/opencode` | OpenCode config: `opencode.jsonc`, `cli.json` |
+| `~/.config/sandbox-code/opencode-data/` | `/home/ubuntu/.local/share/opencode` | OpenCode data: credentials stored via `/connect`, sessions, and the `.init-done/` markers |
+| `~/.config/sandbox-code/gitmirror/` | `/workspace/.git` (per project, `--no-git` only) | Disposable per-workspace git repos |
+
+### Config seeding
+
+`opencode.jsonc` and `cli.json` are copied from this repo's `config/` into `opencode-config/` **once**, and only if they do not already exist. Repo updates therefore never overwrite your local edits — to pick up new defaults, add them manually or run `sandbox-code reset`.
+
+### Init markers
+
+The "already initialised" state for the [init script](#init-script) (and for OpenSpec) lives in the `opencode-data` volume, keyed by a hash of the workspace and the init-script name:
 
 ```
-~/.config/sandbox-code/
-├── opencode-config/   → /home/ubuntu/.config/opencode
-├── opencode-data/     → /home/ubuntu/.local/share/opencode
-└── gitmirror/         → disposable per-workspace git repos (used by --no-git)
+~/.config/sandbox-code/opencode-data/.init-done/<workspace-key>
 ```
 
-To wipe everything and start fresh:
+Because the key includes the init script's name, changing `--init-script` re-runs init once. `--force-init` drops the marker, `project clean` removes this project's marker, and `reset` clears all markers.
+
+### Wiping state
 
 ```bash
-sandbox-code reset
+sandbox-code reset          # configuration, data and gitmirror
+sandbox-code project clean  # this project's container, markers and generated files
 ```
 
 > **Upgrading an existing install:** this sandbox now targets OpenCode V2, which reads `cli.json` (not the V1 `tui.json`) and uses the V2 `agents`/`plugins` config keys. Seeded config files are written only once, so delete the old files in `~/.config/sandbox-code/opencode-config/` (or run `sandbox-code reset`, which also clears stored credentials) and rebuild to pick up the new layout.
