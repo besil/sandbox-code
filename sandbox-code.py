@@ -23,13 +23,13 @@ FIREWALL_SUBDIR = os.path.join("config", "firewall")
 
 # Generated project files live in a hidden folder inside the workspace.
 SANDBOX_DIR = ".sandbox-code"
-RUN_SCRIPT_NAME = ".sandbox-run.sh"
-PRE_SCRIPT_NAME = ".sandbox-pre.sh"
-POST_SCRIPT_NAME = ".sandbox-post.sh"
-INIT_SCRIPT_NAME = ".sandbox-init.sh"
+RUN_SCRIPT_NAME = "sandbox-run.sh"
+PRE_SCRIPT_NAME = "sandbox-pre.sh"
+POST_SCRIPT_NAME = "sandbox-post.sh"
+INIT_SCRIPT_NAME = "sandbox-init.sh"
 # Holds the command the container should run; read at container start so an
 # existing (persistent) container can be reused with a different command.
-CMD_FILE_NAME = ".sandbox-cmd"
+CMD_FILE_NAME = "sandbox-cmd"
 
 # Default init script, relative to the workspace root.
 DEFAULT_INIT_SCRIPT = os.path.join(SANDBOX_DIR, INIT_SCRIPT_NAME)
@@ -104,19 +104,19 @@ def _build_parser():
     sub = parser.add_subparsers(dest="subcommand", metavar="<command>")
 
     # -- run -----------------------------------------------------------------
-    p = sub.add_parser("run", help="Execute the generated .sandbox-code/.sandbox-run.sh")
+    p = sub.add_parser("run", help="Execute the generated .sandbox-code/sandbox-run.sh")
     _add_run_args(p)
 
     # -- project -------------------------------------------------------------
     p = sub.add_parser("project", help="Manage the current project")
     psub = p.add_subparsers(dest="project_command", metavar="<subcommand>")
 
-    sp = psub.add_parser("init", help="Create .sandbox-code/.sandbox-init.sh and .sandbox-code/.sandbox-run.sh")
+    sp = psub.add_parser("init", help="Create .sandbox-code/sandbox-init.sh and .sandbox-code/sandbox-run.sh")
     _add_workspace_arg(sp)
 
     sp = psub.add_parser(
         "build",
-        help="Generate/update .sandbox-code/.sandbox-run.sh and build the Docker image",
+        help="Generate/update .sandbox-code/sandbox-run.sh and build the Docker image",
     )
     _add_workspace_arg(sp)
     _add_build_args(sp)
@@ -173,7 +173,7 @@ def _add_run_args(parser):
     parser.add_argument(
         "command", nargs=argparse.REMAINDER,
         help="Override the command to run inside the container "
-             "(default: the command baked into .sandbox-code/.sandbox-run.sh)",
+             "(default: the command baked into .sandbox-code/sandbox-run.sh)",
     )
 
 
@@ -312,7 +312,7 @@ def cmd_run(script_dir, args):
 
 
 def cmd_project_build(script_dir, args):
-    """Generate/update .sandbox-code/.sandbox-run.sh and build the Docker image."""
+    """Generate/update .sandbox-code/sandbox-run.sh and build the Docker image."""
     workspace = os.path.abspath(args.workspace)
     network_arg, filter_mode = _resolve_network(args)
     command = _strip_remainder(args.command)
@@ -617,7 +617,7 @@ def _write_project_files(script_dir, workspace, *, ssh=False, github=False,
                          x11=False, no_git=False, openspec=False, no_init=False,
                          init_script=DEFAULT_INIT_SCRIPT, force_init=False,
                          network_arg=None, filter_mode=None, command=None):
-    """Generate .sandbox-code/.sandbox-run.sh (and host pre/post hooks)."""
+    """Generate .sandbox-code/sandbox-run.sh (and host pre/post hooks)."""
     workspace = os.path.abspath(workspace)
     command = command or []
     os.makedirs(_sb_dir(workspace), exist_ok=True)

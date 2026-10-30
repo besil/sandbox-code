@@ -4,4 +4,4 @@ __pycache__/
 
 # Generated per-workspace by sandbox-code (see sandbox-code.py)
 .sandbox-code/*
-!.sandbox-code/.sandbox-init.sh
+!.sandbox-code/sandbox-init.sh

@@ -3,12 +3,12 @@
 #
 # The base image ships WITHOUT language runtimes. To give a project Go, Java,
 # Maven, Clojure (or anything else), copy this file into the project's
-# .sandbox-code/ folder as .sandbox-code/.sandbox-init.sh and trim it to only
+# .sandbox-code/ folder as .sandbox-code/sandbox-init.sh and trim it to only
 # what the project needs.
 #
 # - Runs as root, once per project (content hash is cached in the persistent
 #   opencode-data volume — see --no-init / --force-init / --init-script).
-# - Projects WITHOUT a .sandbox-init.sh get nothing extra: no installs happen.
+# - Projects WITHOUT a sandbox-init.sh get nothing extra: no installs happen.
 #
 # Example: a pure-TypeScript project should replace this file with an empty
 # one (or none), while a Go project keeps just the Go section.
