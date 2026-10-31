@@ -387,7 +387,7 @@ install them per project via the [init script](#init-script).
 There is **no** built-in default installer — a project gets exactly what its own
 `.sandbox-code/sandbox-init.sh` installs (cached once per project by content hash). Use the
 [`sandbox-init.sh` template](/templates/sandbox-init.sh) from this repo as a starting point,
-or these snippets inside a custom per-project init script:
+or these snippets inside a custom per-project init script, examples:
 
 | Package | Init script snippet |
 |---|---|
