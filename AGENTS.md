@@ -45,6 +45,7 @@ sandbox-code (shell wrapper) → sandbox-code.py (Python) → bash .sandbox-code
 
 - **Stdlib only.** No pip, poetry, uv, or external packages. `argparse`, `hashlib`, `os`, `pathlib`, `re`, `shlex`, `shutil`, `subprocess`, `sys`.
 - Commands are dispatched via `argparse` sub-parsers: `run` (default), `project {init,build,features,clean}`, `host {network {blacklist,whitelist,clean,init-blacklist,init-whitelist}}`, `version`, `reset`.
+- `init` and `build` are top-level shortcuts: `main()` normalises them to `project init` / `project build` after parsing (setting `args.project_command`), so they reuse `_dispatch_project` and the same parser builders (`_add_init_parser` / `_add_build_parser`).
 - `main()` prepends `run` when there is no subcommand (so bare `sandbox-code`, `sandbox-code --bash` and `sandbox-code -- cmd` work); `sandbox-code -h/--help` still prints top-level help.
 - `run` and `project build` use `argparse.REMAINDER`; `_strip_remainder()` removes the leading `--` and treats `["."]` as no-command (runs the default `opencode .`).
 - All container/feature configuration is baked into `.sandbox-code/sandbox-run.sh` at build time; `run` is deliberately dumb — it just executes the script, optionally passing an override command (`--bash` → `exec bash`, `-- cmd` → `cmd`).
