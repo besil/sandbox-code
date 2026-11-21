@@ -193,7 +193,7 @@ def _add_run_args(parser):
         help="Drop into an interactive bash shell instead of the configured command",
     )
     parser.add_argument(
-        "--new-session", action="store_true",
+        "--new-session" "-ns", action="store_true",
         help="Start a new OpenCode session instead of continuing the previous one",
     )
     parser.add_argument(
