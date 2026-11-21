@@ -1,15 +1,15 @@
 {
   "$schema": "https://opencode.ai/config.json",
-  "model": "openrouter/deepseek/deepseek-v4.1-flash",
+  "model": "opencode/deepseek-v4.1-flash-free",
   "agents": {
     "plan": {
-      "model": "openrouter/deepseek/deepseek-v4.1-flash"
+      "model": "opencode/deepseek-v4.1-flash-free"
     },
     "build": {
-      "model": "openrouter/deepseek/deepseek-v4.1-flash"
+      "model": "opencode/deepseek-v4.1-flash-free"
     },
     "openspec-planner": {
-      "model": "openrouter/deepseek/deepseek-v4.1-flash"
+      "model": "opencode/deepseek-v4.1-flash-free"
     }
   },
   "plugins": [
