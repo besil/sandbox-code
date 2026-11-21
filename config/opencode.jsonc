@@ -3,13 +3,13 @@
   "model": "openrouter/deepseek/deepseek-v4.1-flash",
   "agents": {
     "plan": {
-      "model": "openrouter/deepseek/deepseek-v4-pro"
+      "model": "openrouter/deepseek/deepseek-v4.1-flash"
     },
     "build": {
       "model": "openrouter/deepseek/deepseek-v4.1-flash"
     },
     "openspec-planner": {
-      "model": "openrouter/deepseek/deepseek-v4-pro"
+      "model": "openrouter/deepseek/deepseek-v4.1-flash"
     }
   },
   "plugins": [
