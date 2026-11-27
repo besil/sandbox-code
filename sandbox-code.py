@@ -34,6 +34,9 @@ CMD_FILE_NAME = "sandbox-cmd"
 # Default init script, relative to the workspace root.
 DEFAULT_INIT_SCRIPT = os.path.join(SANDBOX_DIR, INIT_SCRIPT_NAME)
 
+# Top-level shortcuts that map straight onto a `project` subcommand.
+PROJECT_SHORTCUTS = ("init", "build")
+
 
 def _sb_dir(workspace):
     """Host path to the workspace's .sandbox-code directory."""
@@ -77,6 +80,10 @@ def main():
     args = parser.parse_args(argv)
 
     sub = args.subcommand
+    if sub in PROJECT_SHORTCUTS:
+        # `sandbox-code init|build` == `sandbox-code project init|build`.
+        args.project_command = sub
+        sub = "project"
 
     if sub == "run" or sub is None:
         cmd_run(script_dir, args)
@@ -97,7 +104,7 @@ def _build_parser():
         prog="sandbox-code",
         description="Run OpenCode inside a Dockerised sandbox.",
         epilog=(
-            "Commands: run (default), project, host, version, reset. "
+            "Commands: run (default), project, init, build, host, version, reset. "
             "Run 'sandbox-code <command> --help' for details."
         ),
     )
@@ -111,15 +118,15 @@ def _build_parser():
     p = sub.add_parser("project", help="Manage the current project")
     psub = p.add_subparsers(dest="project_command", metavar="<subcommand>")
 
-    sp = psub.add_parser("init", help="Create .sandbox-code/sandbox-init.sh and .sandbox-code/sandbox-run.sh")
-    _add_workspace_arg(sp)
-
-    sp = psub.add_parser(
-        "build",
-        help="Generate/update .sandbox-code/sandbox-run.sh and build the Docker image",
+    _add_init_parser(
+        psub, "init",
+        "Create .sandbox-code/sandbox-init.sh and .sandbox-code/sandbox-run.sh",
     )
-    _add_workspace_arg(sp)
-    _add_build_args(sp)
+
+    _add_build_parser(
+        psub, "build",
+        "Generate/update .sandbox-code/sandbox-run.sh and build the Docker image",
+    )
 
     sp = psub.add_parser("features", help="List the features enabled for this project")
     _add_workspace_arg(sp)
@@ -128,6 +135,10 @@ def _build_parser():
         "clean", help="Remove the container, init marker and generated files",
     )
     _add_workspace_arg(sp)
+
+    # -- shortcuts -----------------------------------------------------------
+    _add_init_parser(sub, "init", "Shortcut for 'project init'")
+    _add_build_parser(sub, "build", "Shortcut for 'project build'")
 
     # -- host ----------------------------------------------------------------
     p = sub.add_parser("host", help="Manage host-side settings")
@@ -153,6 +164,21 @@ def _build_parser():
     return parser
 
 
+def _add_init_parser(sub, name, help_text):
+    """Register an `init` command parser; used by `project init` and the shortcut."""
+    sp = sub.add_parser(name, help=help_text)
+    _add_workspace_arg(sp)
+    return sp
+
+
+def _add_build_parser(sub, name, help_text):
+    """Register a `build` command parser; used by `project build` and the shortcut."""
+    sp = sub.add_parser(name, help=help_text)
+    _add_workspace_arg(sp)
+    _add_build_args(sp)
+    return sp
+
+
 def _add_workspace_arg(parser):
     parser.add_argument(
         "-w", "--workspace", default=os.getcwd(),
@@ -167,7 +193,7 @@ def _add_run_args(parser):
         help="Drop into an interactive bash shell instead of the configured command",
     )
     parser.add_argument(
-        "--new-session", action="store_true",
+        "--new-session" "-ns", action="store_true",
         help="Start a new OpenCode session instead of continuing the previous one",
     )
     parser.add_argument(

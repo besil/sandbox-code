@@ -76,6 +76,8 @@ Without a command, `sandbox-code` runs `.sandbox-code/sandbox-run.sh` (equivalen
 | `project build [options] [-- command...]` | Generate/update `.sandbox-code/sandbox-run.sh`, build the image, and initialise the container |
 | `project features` | List the features currently enabled for the workspace |
 | `project clean` | Remove the container, init marker, generated files and their `.gitignore` entries |
+| `init` | Shortcut for `project init` |
+| `build [options] [-- command...]` | Shortcut for `project build` |
 | `host network blacklist` / `host network whitelist` | Apply firewall rules on the host |
 | `host network clean` | Remove all firewall rules created by sandbox-code |
 | `host network init-blacklist` / `host network init-whitelist` | Create a config template in the workspace |
